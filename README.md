@@ -1,19 +1,19 @@
 # Musicam — Cyber Matrix V2
 
-A separate experimental redesign branch of Musicam. The original `main` branch is preserved unchanged.
+A separate experimental redesign branch. The original `main` branch remains the preserved baseline.
 
 ## Branch and baseline
 
 - Branch: `cyber-matrix-v2`
 - Base: `main` at `892e51da7c96fdc1e7d4904e07df1058b4e4f05e`
-- Original interaction and sound engine are retained as the compatibility baseline.
-- This branch is not yet a release candidate; see the verification notes below.
+- No changes are made to `main` by this branch.
+- V2 is a compatibility-first modular refactor and remains experimental until browser regression and licensing checks are complete.
 
 ## Run locally
 
-Use a local HTTP server (ES modules do not run reliably from `file://`) or deploy to GitHub Pages over HTTPS. Open `index.html` in a current Chromium-based browser. Camera access requires HTTPS or localhost and user permission.
+Serve this folder over HTTP or HTTPS; do not open it with `file://`. Camera access requires HTTPS or localhost and explicit browser permission. A current Chromium-based browser is recommended.
 
-## Current V2 file layout
+## Six-file application layout
 
 ```
 index.html
@@ -25,31 +25,45 @@ js/
   visuals.js
 ```
 
-- `index.html`: semantic page shell, original embedded LAME encoder, V2 controls, and ES-module entry point.
-- `styles.css`: extracted original stylesheet plus the Cyber Matrix green / cyan / violet theme.
-- `js/app.js`: original application runtime, including the existing synthesis engine, gesture mapping, MediaPipe integration, drawing, recording/export, setups, and demo. It also installs the V2 modules.
-- `js/audio.js`: additive Psychedelic / Psyambient / Psytrance profile and macro controls that adjust existing audio graph parameters.
-- `js/vision.js`: camera stream tracking and cleanup hooks, including startup-failure and page-lifecycle cleanup.
-- `js/visuals.js`: optional audio-reactive Matrix, Fractal, Oscilloscope, and Spectrum overlay using the existing output analyser signal.
+- `index.html`: page shell, original embedded LAME encoder, V2 controls, and module entry point.
+- `styles.css`: extracted original stylesheet plus responsive Cyber Matrix green / cyan / violet theme.
+- `js/app.js`: application composition root, central state, UI/event orchestration, setup storage, demo and lifecycle wiring. It creates subsystem modules through dependency-injected context objects.
+- `js/audio.js`: Web Audio graph, instrument synthesis, effects, beats, transport, loop layers, PCM capture, WAV/MP3/video audio handling, offline rendering and stems. The original audio graph and scheduling behavior are retained.
+- `js/vision.js`: MediaPipe loading, camera lifecycle, landmark processing, gesture recognition, pinch/mapping behavior, pointer and mouse fallback. It receives the live stage dimensions through context accessors.
+- `js/visuals.js`: original Canvas renderer, instrument icon drawing, hand overlays, stage rendering and V2 audio-reactive Matrix / Fractal / Oscilloscope / Spectrum overlay.
 
-## Preserved baseline features
+## Preserved functionality
 
-The original app runtime is retained in `js/app.js`: 24 instruments, seven scale configurations, two-hand MediaPipe tracking, mouse fallback, 12 virtual strings, beat patterns and transport, up to eight loop layers, setups (v1 JSON), WAV/MP3/video recording, stem export, and scripted demo mode.
+The refactor retains the original 24 instruments, seven scale configurations, two-hand MediaPipe tracking, mouse fallback, 12 virtual strings, beat patterns and transport, up to eight loop layers, v1 JSON setups, WAV/MP3/video recording, stem ZIP export and scripted demo.
 
-The original pinch/gesture mapping is intentionally not redesigned in this compatibility pass.
+The original gesture mapping semantics and audio engine algorithms were not intentionally redesigned. V2 profile controls are additive parameter changes against the existing audio graph.
 
-## Important implementation boundary
+## Psy profiles and macros
 
-This is a compatibility-first V2 foundation, not the completed deep module extraction originally envisioned. The legacy engine still lives together in `js/app.js`; the audio, gesture-recognition, and canvas-rendering internals have **not** yet been fully separated into their respective modules. The new profile layer changes existing graph parameters only; it does not add independent synthesis engines or claim new FM capabilities. The visualizer is an overlay and does not replace the original stage renderer.
+- Psychedelic, Psyambient and Psytrance presets are exposed as profiles.
+- PSY, DARK and MOTION macros adjust existing filter / echo parameters with bounded targets.
+- No independent replacement synthesis engines or unsupported FM features are claimed.
+- Visualizer modes consume the real audio output analyser signal. The original stage renderer remains active underneath the optional overlay.
 
-Before calling this release-ready, complete the deeper dependency-injection extraction and run the browser regression suite on real hardware. In particular, test AudioContext lifecycle, all instruments and scales, camera permission denial and repeated start/stop, gesture mapping, long recording sessions, MP3/WAV/video export, offline stems, setup v1 import/export, reduced motion, and mobile layouts.
+## Reliability work in this branch
+
+- Camera stream is retained on the vision subsystem and tracks are stopped during startup failure and page lifecycle cleanup.
+- HandLandmarker close is guarded and the video element is detached on cleanup.
+- Shared stage dimensions are exposed through live context getters to avoid stale values after landscape/vertical stage changes.
+- Module factories receive explicit context objects; application state ownership remains in `app.js`.
+
+## Validation status
+
+Static JavaScript parse checks passed for the four application modules after extraction. This is not equivalent to browser runtime validation. No claim is made that real camera, audio hardware, recording, export, mobile layout, or long-session tests have passed in this environment.
+
+Before release, run the complete browser regression matrix: startup and demo; mouse interaction; camera permission grant/deny; GPU-to-CPU MediaPipe fallback; repeated camera start/stop; all instruments and scales; gesture mapping; beats/BPM/chord/layers; Setup v1 import/export; WAV/MP3/video recording; offline stems/ZIP; reduced motion; responsive layouts; and repeated AudioContext lifecycle transitions.
 
 ## Dependencies and licensing
 
-- MediaPipe Tasks Vision is loaded from the pinned `0.10.14` CDN bundle by the existing runtime; the hand-landmarker model is loaded from Google's model hosting.
-- The embedded `lamejs` 1.2.1 encoder is identified by the upstream project as LGPL-3.0. Preserve its copyright/license notice and include the applicable LGPL license text and source availability obligations before redistributing a release.
-- No framework, build system, backend, or new runtime dependency was added.
+- MediaPipe Tasks Vision is pinned to `0.10.14`; the Hand Landmarker model is loaded from Google's model hosting.
+- The embedded `lamejs` 1.2.1 encoder is identified by the upstream project as LGPL-3.0. Preserve the copyright/license notice and include the applicable LGPL license text and source availability obligations before redistribution.
+- No framework, build system, backend, or additional runtime dependency was introduced.
 
 ## Release status
 
-Experimental branch only. Static source review has been performed during branch construction, but no browser/runtime test, automated test suite, or real camera/audio hardware validation has been run in this environment. Do not merge into `main` until the remaining module extraction, license packaging, and regression checks are complete.
+Experimental branch only. Do not merge into `main` or distribute as a production release until browser/runtime regression tests and LGPL packaging are completed.
