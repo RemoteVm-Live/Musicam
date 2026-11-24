@@ -1,5 +1,5 @@
 export function createVisionModule(ctx) {
-const { W, H, $, $$, clamp, lerp, dist, nowS, NOTE_NAMES, SHARP_NAMES, FLAT_NAMES, spell, SCALES, SCALE_ORDER, DRUM_ZONES, HAND_ZONES, INSTRUMENTS, INSTRUMENT_ORDER, own, MAX_STRINGS, MAX_LAYERS, state, hexA, toast, strRoot, strScale, strLen, strMid, orient, zoneCount, zoneInfo, stringLabel, addString, removeString, clearStrings, pluck, notePop, keepVoices, bendString, ROLLS, HOLD_IN, HOLD_OUT, HOLD_AFTER, holdNote, rollGap, startHold, endHold, updateHolds, sweep, forgetPointer, nearestBody, PULL_MAX, BEND_CENTS, pullString, releasePull, burst, nearestEndpoint, nearestDot, distToString, menuItems, MENU_TITLES, openMenu, menuContains, closeMenu, menuIdle, chooseMenu, pluckQuiet, updateMenu, film, enterClean, leaveClean, startFilm, stopFilm, toggleClean, setShape, SETUP_STORE, STARTERS, starterSetup, snapshot, applySetup, storedSetups, storeSetups, saveSetup, refreshSetups, setupToFile, setupFromFile, openModal, closeModal, buildChips, refreshUI, mixRowsHTML, nudgeVolume, currentHint, layoutStage, initUI, lastT, fpsN, fpsT, hintShown, ledShown, chordShown, frame, demo, demoHandPoints, demoHands, sleep, tween, both, canvasPosOf, demoStretch, demoChoose, demoPress, demoPluck, runDemo, boot, audio, midiHz, buildGraph, initAudio, setFx, instBus, ksBuffer, env, VC, noiseSrc, oscAt, playNote, releaseVoice, bendVoice, SUSTAINS, buildVoice, playDrum, playEvent, BEATS, BEAT_ORDER, PARTS, PROGS, transport, stepDur, scaleDegree, scheduleStep, tick, startTransport, stopTransport, togglePlay, setBeat, stepAt, armLayer, captureEvent, makeLayer, layerOut, finishLayer, removeLayer, undoLayer, chordDegNow, chordLabel, rec, TAP_SRC, pushPcm, ensureTap, pickMime, startRecording, stopRecording, wavBlob, pcmFromVideo, mp3Blob, mp3Possible, finishRecording, saveMp3, download, renderOffline, wavBytes, CRC_TABLE, crc32, zipBlob, exportStems } = ctx;
+const { $, $$, clamp, lerp, dist, nowS, NOTE_NAMES, SHARP_NAMES, FLAT_NAMES, spell, SCALES, SCALE_ORDER, DRUM_ZONES, HAND_ZONES, INSTRUMENTS, INSTRUMENT_ORDER, own, MAX_STRINGS, MAX_LAYERS, state, hexA, toast, strRoot, strScale, strLen, strMid, orient, zoneCount, zoneInfo, stringLabel, addString, removeString, clearStrings, pluck, notePop, keepVoices, bendString, ROLLS, HOLD_IN, HOLD_OUT, HOLD_AFTER, holdNote, rollGap, startHold, endHold, updateHolds, sweep, forgetPointer, nearestBody, PULL_MAX, BEND_CENTS, pullString, releasePull, burst, nearestEndpoint, nearestDot, distToString, menuItems, MENU_TITLES, openMenu, menuContains, closeMenu, menuIdle, chooseMenu, pluckQuiet, updateMenu, film, enterClean, leaveClean, startFilm, stopFilm, toggleClean, setShape, SETUP_STORE, STARTERS, starterSetup, snapshot, applySetup, storedSetups, storeSetups, saveSetup, refreshSetups, setupToFile, setupFromFile, openModal, closeModal, buildChips, refreshUI, mixRowsHTML, nudgeVolume, currentHint, layoutStage, initUI, lastT, fpsN, fpsT, hintShown, ledShown, chordShown, frame, demo, demoHandPoints, demoHands, sleep, tween, both, canvasPosOf, demoStretch, demoChoose, demoPress, demoPluck, runDemo, boot, audio, midiHz, buildGraph, initAudio, setFx, instBus, ksBuffer, env, VC, noiseSrc, oscAt, playNote, releaseVoice, bendVoice, SUSTAINS, buildVoice, playDrum, playEvent, BEATS, BEAT_ORDER, PARTS, PROGS, transport, stepDur, scaleDegree, scheduleStep, tick, startTransport, stopTransport, togglePlay, setBeat, stepAt, armLayer, captureEvent, makeLayer, layerOut, finishLayer, removeLayer, undoLayer, chordDegNow, chordLabel, rec, TAP_SRC, pushPcm, ensureTap, pickMime, startRecording, stopRecording, wavBlob, pcmFromVideo, mp3Blob, mp3Possible, finishRecording, saveMp3, download, renderOffline, wavBytes, CRC_TABLE, crc32, zipBlob, exportStems } = ctx;
 const TRACKER = Object.assign({
   bundle: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs',
   wasm: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm',
@@ -47,9 +47,9 @@ async function startCamera(setStatus) {
 
 // camera frame → mirrored canvas coordinates, matching how the picture is drawn ("cover" fit)
 function videoFit() {
-  const v = cam.video, vw = v.videoWidth || W, vh = v.videoHeight || H;
-  const sc = Math.max(W / vw, H / vh);
-  return { vw, vh, sc, ox: (W - vw * sc) / 2, oy: (H - vh * sc) / 2 };
+  const v = cam.video, vw = v.videoWidth || ctx.W, vh = v.videoHeight || ctx.H;
+  const sc = Math.max(ctx.W / vw, ctx.H / vh);
+  return { vw, vh, sc, ox: (ctx.W - vw * sc) / 2, oy: (ctx.H - vh * sc) / 2 };
 }
 function readHands(t) {
   const v = cam.video;
@@ -59,7 +59,7 @@ function readHands(t) {
   const f = videoFit();
   cam.frames++;
   if (t - cam.fpsT > 1) { cam.trackFps = Math.round(cam.frames / (t - cam.fpsT)); cam.frames = 0; cam.fpsT = t; }
-  return (res.landmarks || []).map(lm => lm.map(p => ({ x: W - (p.x * f.vw * f.sc + f.ox), y: p.y * f.vh * f.sc + f.oy })));
+  return (res.landmarks || []).map(lm => lm.map(p => ({ x: ctx.W - (p.x * f.vw * f.sc + f.ox), y: p.y * f.vh * f.sc + f.oy })));
 }
 
 function newHand() {
@@ -218,7 +218,7 @@ function dropHand(j) {
 // ── hands on the on-screen buttons ──
 function toClient(p) {
   const r = $('#stage').getBoundingClientRect();
-  return { x: r.left + p.x * r.width / W, y: r.top + p.y * r.height / H };
+  return { x: r.left + p.x * r.width / ctx.W, y: r.top + p.y * r.height / ctx.H };
 }
 function buttonAt(p) {
   const c = toClient(p);
@@ -246,7 +246,7 @@ function updateHandHover() {
 // ── mouse / touch: the same instrument without a camera ──
 function initPointer() {
   const cv = $('#stage'), m = state.mouse;
-  const pos = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
+  const pos = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * ctx.W / r.width, y: (e.clientY - r.top) * ctx.H / r.height }; };
   cv.addEventListener('pointerdown', e => {
     initAudio();
     const p = pos(e);
