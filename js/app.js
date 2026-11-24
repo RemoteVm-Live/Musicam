@@ -1272,7 +1272,7 @@ async function loadTracker() {
 async function startCamera(setStatus) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('This browser cannot open a camera from here.');
   setStatus('Waiting for camera permission…');
-  const stream = await navigator.mediaDevices.getUserMedia({
+  const stream = cam.stream = await navigator.mediaDevices.getUserMedia({
     video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false,
   });
   const v = cam.video = $('#cam');
