@@ -1,6 +1,6 @@
 # Music Maker
 
-**Created by: Hashem Al-Ghaili**
+
 
 Stretch strings in the air, give each one an instrument, and play them with your fingers.
 A single-page, camera-tracked instrument that runs entirely in the browser.
