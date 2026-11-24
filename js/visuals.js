@@ -1,5 +1,5 @@
 export function createVisualModule(ctx) {
-const { W, H, $, $$, clamp, lerp, dist, nowS, NOTE_NAMES, SHARP_NAMES, FLAT_NAMES, spell, SCALES, SCALE_ORDER, DRUM_ZONES, HAND_ZONES, INSTRUMENTS, INSTRUMENT_ORDER, own, MAX_STRINGS, MAX_LAYERS, state, hexA, toast, strRoot, strScale, strLen, strMid, orient, zoneCount, zoneInfo, stringLabel, addString, removeString, clearStrings, pluck, notePop, keepVoices, bendString, ROLLS, HOLD_IN, HOLD_OUT, HOLD_AFTER, holdNote, rollGap, startHold, endHold, updateHolds, sweep, forgetPointer, nearestBody, PULL_MAX, BEND_CENTS, pullString, releasePull, burst, nearestEndpoint, nearestDot, distToString, menuItems, MENU_TITLES, openMenu, menuContains, closeMenu, menuIdle, chooseMenu, pluckQuiet, updateMenu, film, enterClean, leaveClean, startFilm, stopFilm, toggleClean, setShape, SETUP_STORE, STARTERS, starterSetup, snapshot, applySetup, storedSetups, storeSetups, saveSetup, refreshSetups, setupToFile, setupFromFile, openModal, closeModal, buildChips, refreshUI, mixRowsHTML, nudgeVolume, currentHint, layoutStage, initUI, lastT, fpsN, fpsT, hintShown, ledShown, chordShown, frame, demo, demoHandPoints, demoHands, sleep, tween, both, canvasPosOf, demoStretch, demoChoose, demoPress, demoPluck, runDemo, boot, audio, midiHz, buildGraph, initAudio, setFx, instBus, ksBuffer, env, VC, noiseSrc, oscAt, playNote, releaseVoice, bendVoice, SUSTAINS, buildVoice, playDrum, playEvent, BEATS, BEAT_ORDER, PARTS, PROGS, transport, stepDur, scaleDegree, scheduleStep, tick, startTransport, stopTransport, togglePlay, setBeat, stepAt, armLayer, captureEvent, makeLayer, layerOut, finishLayer, removeLayer, undoLayer, chordDegNow, chordLabel, rec, TAP_SRC, pushPcm, ensureTap, pickMime, startRecording, stopRecording, wavBlob, pcmFromVideo, mp3Blob, mp3Possible, finishRecording, saveMp3, download, renderOffline, wavBytes, CRC_TABLE, crc32, zipBlob, exportStems, TRACKER, cam, modalOpen, loadTracker, startCamera, videoFit, readHands, newHand, processHands, moveFx, endFx, updateHand, pinchDown, pinchUp, dropHand, toClient, buttonAt, setHover, handClick, updateHandHover, initPointer, gatherPointers } = ctx;
+const { $, $$, clamp, lerp, dist, nowS, NOTE_NAMES, SHARP_NAMES, FLAT_NAMES, spell, SCALES, SCALE_ORDER, DRUM_ZONES, HAND_ZONES, INSTRUMENTS, INSTRUMENT_ORDER, own, MAX_STRINGS, MAX_LAYERS, state, hexA, toast, strRoot, strScale, strLen, strMid, orient, zoneCount, zoneInfo, stringLabel, addString, removeString, clearStrings, pluck, notePop, keepVoices, bendString, ROLLS, HOLD_IN, HOLD_OUT, HOLD_AFTER, holdNote, rollGap, startHold, endHold, updateHolds, sweep, forgetPointer, nearestBody, PULL_MAX, BEND_CENTS, pullString, releasePull, burst, nearestEndpoint, nearestDot, distToString, menuItems, MENU_TITLES, openMenu, menuContains, closeMenu, menuIdle, chooseMenu, pluckQuiet, updateMenu, film, enterClean, leaveClean, startFilm, stopFilm, toggleClean, setShape, SETUP_STORE, STARTERS, starterSetup, snapshot, applySetup, storedSetups, storeSetups, saveSetup, refreshSetups, setupToFile, setupFromFile, openModal, closeModal, buildChips, refreshUI, mixRowsHTML, nudgeVolume, currentHint, layoutStage, initUI, lastT, fpsN, fpsT, hintShown, ledShown, chordShown, frame, demo, demoHandPoints, demoHands, sleep, tween, both, canvasPosOf, demoStretch, demoChoose, demoPress, demoPluck, runDemo, boot, audio, midiHz, buildGraph, initAudio, setFx, instBus, ksBuffer, env, VC, noiseSrc, oscAt, playNote, releaseVoice, bendVoice, SUSTAINS, buildVoice, playDrum, playEvent, BEATS, BEAT_ORDER, PARTS, PROGS, transport, stepDur, scaleDegree, scheduleStep, tick, startTransport, stopTransport, togglePlay, setBeat, stepAt, armLayer, captureEvent, makeLayer, layerOut, finishLayer, removeLayer, undoLayer, chordDegNow, chordLabel, rec, TAP_SRC, pushPcm, ensureTap, pickMime, startRecording, stopRecording, wavBlob, pcmFromVideo, mp3Blob, mp3Possible, finishRecording, saveMp3, download, renderOffline, wavBytes, CRC_TABLE, crc32, zipBlob, exportStems, TRACKER, cam, modalOpen, loadTracker, startCamera, videoFit, readHands, newHand, processHands, moveFx, endFx, updateHand, pinchDown, pinchUp, dropHand, toClient, buttonAt, setHover, handClick, updateHandHover, initPointer, gatherPointers } = ctx;
 const GUITAR_BODY = [[8.6, 15.9, 5.6], [12.7, 10.9, 3.9]];
 const ICONS = {
   guitar(k) { k.B(GUITAR_BODY); k.cut(() => k.D(10.3, 13.9, 1.5)); k.S('M15 8.6 L20.3 3.3 M18.7 1.8 L21.8 4.9', 2); },
@@ -78,18 +78,18 @@ function drawBackdrop() {
   if (state.mode === 'camera' && v && v.readyState >= 2) {
     const f = videoFit();
     g.save();
-    g.translate(W, 0); g.scale(-1, 1);
+    g.translate(ctx.W, 0); g.scale(-1, 1);
     g.drawImage(v, f.ox, f.oy, f.vw * f.sc, f.vh * f.sc);
     g.restore();
     g.fillStyle = `rgba(8,10,14,${state.settings.dim})`;
-    g.fillRect(0, 0, W, H);
+    g.fillRect(0, 0, ctx.W, ctx.H);
   } else {
-    const gr = g.createLinearGradient(0, 0, 0, H);
+    const gr = g.createLinearGradient(0, 0, 0, ctx.H);
     gr.addColorStop(0, '#0b0e13'); gr.addColorStop(1, '#161b22');
-    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    g.fillStyle = gr; g.fillRect(0, 0, ctx.W, ctx.H);
     g.strokeStyle = 'rgba(255,255,255,0.03)'; g.lineWidth = 1;
     g.beginPath();
-    for (let y = 60; y < H; y += 60) { g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); }
+    for (let y = 60; y < ctx.H; y += 60) { g.moveTo(0, y + 0.5); g.lineTo(ctx.W, y + 0.5); }
     g.stroke();
   }
 }
@@ -196,9 +196,9 @@ function drawFx() {
   g.beginPath(); g.arc(o.x, o.y, 6, 0, 7); g.stroke();
   g.restore();
   const on = v => (v > 0.02 ? '#ffc24a' : 'rgba(251,246,233,0.75)');
-  label('THIN' + (F.thin > 0.02 ? ' ' + Math.round(F.thin * 100) + '%' : ''), o.x, clamp(o.y - R - 14, state.safeTop + 14, H), 12, on(F.thin), 'center', 700);
+  label('THIN' + (F.thin > 0.02 ? ' ' + Math.round(F.thin * 100) + '%' : ''), o.x, clamp(o.y - R - 14, state.safeTop + 14, ctx.H), 12, on(F.thin), 'center', 700);
   label('DARK' + (F.dark > 0.02 ? ' ' + Math.round(F.dark * 100) + '%' : ''), o.x, clamp(o.y + R + 14, 0, state.safeBottom - 14), 12, on(F.dark), 'center', 700);
-  label('ECHO' + (F.echo > 0.02 ? ' ' + Math.round(F.echo * 100) + '%' : ''), clamp(o.x + (p.x >= o.x ? R : -R), 46, W - 46), o.y - 14, 12, on(F.echo), 'center', 700);
+  label('ECHO' + (F.echo > 0.02 ? ' ' + Math.round(F.echo * 100) + '%' : ''), clamp(o.x + (p.x >= o.x ? R : -R), 46, ctx.W - 46), o.y - 14, 12, on(F.echo), 'center', 700);
 }
 
 function drawPreview() {
