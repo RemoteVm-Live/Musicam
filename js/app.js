@@ -1276,11 +1276,20 @@ async function startCamera(setStatus) {
     video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false,
   });
   const v = cam.video = $('#cam');
-  v.srcObject = stream;
-  await v.play();
-  setStatus('Loading the hand tracker…');
-  await loadTracker();
-  state.mode = 'camera';
+  try {
+    v.srcObject = stream;
+    await v.play();
+    setStatus('Loading the hand tracker…');
+    await loadTracker();
+    state.mode = 'camera';
+  } catch (error) {
+    try { cam.tracker?.close?.(); } catch (_) {}
+    cam.tracker = null;
+    try { stream.getTracks().forEach(track => track.stop()); } catch (_) {}
+    try { v.pause(); v.srcObject = null; } catch (_) {}
+    cam.stream = null;
+    throw error;
+  }
 }
 
 // camera frame → mirrored canvas coordinates, matching how the picture is drawn ("cover" fit)
