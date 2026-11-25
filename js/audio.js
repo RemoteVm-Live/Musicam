@@ -1402,7 +1402,7 @@ export function installAudioExperience(r) {
   const sections = document.querySelector('#sdSections');
   const status = document.querySelector('#sdStatus');
   const title = document.querySelector('#sdEngineTitle');
-  const snapshots = { A:null, B:null };
+  const snapshots = { A:{}, B:{} };
   let activeSlot = 'A';
   let currentEngine = 'abyss';
   const persistKey = 'musicam.soundDesign.presets.v1';
@@ -1486,13 +1486,13 @@ export function installAudioExperience(r) {
     });
     applyPatch(currentEngine,patch);if(status)status.textContent='SAFE-RANGE RANDOM PATCH GENERATED';
   });
-  const saveSlot=slot=>{snapshots[slot]={...a.synth[currentEngine]};activeSlot=slot;if(status)status.textContent='SLOT '+slot+' STORED'};
+  const saveSlot=slot=>{snapshots[slot][currentEngine]={...a.synth[currentEngine]};activeSlot=slot;if(status)status.textContent='SLOT '+slot+' STORED FOR '+currentEngine.toUpperCase()};
   document.querySelector('#sdA')?.addEventListener('click',()=>saveSlot('A'));
   document.querySelector('#sdB')?.addEventListener('click',()=>saveSlot('B'));
   document.querySelector('#sdCompare')?.addEventListener('click',()=>{
     const other=activeSlot==='A'?'B':'A';
-    if(!snapshots[other]){if(status)status.textContent='STORE BOTH A AND B FIRST';return;}
-    activeSlot=other;applyPatch(currentEngine,snapshots[other]);if(status)status.textContent='A/B · ACTIVE SLOT '+other;
+    if(!snapshots[other][currentEngine]){if(status)status.textContent='STORE BOTH A AND B FOR THIS ENGINE FIRST';return;}
+    activeSlot=other;applyPatch(currentEngine,snapshots[other][currentEngine]);if(status)status.textContent='A/B · ACTIVE SLOT '+other;
   });
   const sdToggle=document.querySelector('#sdToggle'),sdBody=document.querySelector('#sdBody');
   if(sdToggle&&sdBody)sdToggle.addEventListener('click',e=>{sdBody.hidden=!sdBody.hidden;e.currentTarget.textContent=sdBody.hidden?'+':'−';e.currentTarget.setAttribute('aria-expanded',String(!sdBody.hidden))});
@@ -1519,6 +1519,7 @@ export function installAudioExperience(r) {
     });
     renderControls();
   };
+  root.querySelectorAll('[data-profile]').forEach(button=>button.addEventListener('click',()=>applyMacros()));
   root.querySelectorAll('[data-macro]').forEach(input=>input.addEventListener('input',()=>{
     if(input.dataset.macro==='space') { values.space=clampValue(input.value,0,100); applyMacros(); }
     else if(['psy','dark','motion'].includes(input.dataset.macro)){values[input.dataset.macro]=clampValue(input.value,0,100);applyMacros();}
