@@ -1,7 +1,7 @@
 export function createAudioModule(ctx) {
 const { W, H, $, $$, clamp, lerp, dist, nowS, NOTE_NAMES, SHARP_NAMES, FLAT_NAMES, spell, SCALES, SCALE_ORDER, DRUM_ZONES, HAND_ZONES, INSTRUMENTS, INSTRUMENT_ORDER, own, MAX_STRINGS, MAX_LAYERS, state, hexA, toast, strRoot, strScale, strLen, strMid, orient, zoneCount, zoneInfo, stringLabel, addString, removeString, clearStrings, pluck, notePop, keepVoices, bendString, ROLLS, HOLD_IN, HOLD_OUT, HOLD_AFTER, holdNote, rollGap, startHold, endHold, updateHolds, sweep, forgetPointer, nearestBody, PULL_MAX, BEND_CENTS, pullString, releasePull, burst, nearestEndpoint, nearestDot, distToString, menuItems, MENU_TITLES, openMenu, menuContains, closeMenu, menuIdle, chooseMenu, pluckQuiet, updateMenu, film, enterClean, leaveClean, startFilm, stopFilm, toggleClean, setShape, SETUP_STORE, STARTERS, starterSetup, snapshot, applySetup, storedSetups, storeSetups, saveSetup, refreshSetups, setupToFile, setupFromFile, openModal, closeModal, buildChips, refreshUI, mixRowsHTML, nudgeVolume, currentHint, layoutStage, initUI, lastT, fpsN, fpsT, hintShown, ledShown, chordShown, frame, demo, demoHandPoints, demoHands, sleep, tween, both, canvasPosOf, demoStretch, demoChoose, demoPress, demoPluck, runDemo, boot } = ctx;
 // ───────────────────────── sound engine (all synthesised, no samples) ─────────────────────────
-const audio = { ctx: null, ready: false, ks: new Map() };
+const audio = { ctx: null, ready: false, ks: new Map(), activeVoices: new Set() };
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
 
 // Builds the whole mixing graph on a context. The live one is built once; stems are rendered by
@@ -224,8 +224,16 @@ function playNote(id, midi, t, vel, dest, len, o) {
   const hs = held ? 45 : o && o.holdSec;
   const H = base => (hs != null ? Math.max(hs, 0.08) : base * (len || 1));
   const srcs = VC = [];
-  try { buildVoice(id, midi, t, vel, out, len, H); } finally { VC = null; }
-  return { srcs, gate, t };
+  let engineInfo;
+  try { engineInfo = buildVoice(id, midi, t, vel, out, len, H); } finally { VC = null; }
+  const voice = { srcs, gate, t, id, engine: engineInfo && engineInfo.engine, update: engineInfo && engineInfo.update };
+  if (voice.engine) {
+    audio.activeVoices.add(voice);
+    let remaining = srcs.length;
+    if (!remaining) audio.activeVoices.delete(voice);
+    srcs.forEach(source => { source.onended = () => { if (--remaining <= 0) audio.activeVoices.delete(voice); }; });
+  }
+  return voice;
 }
 function releaseVoice(v) {
   if (!v || !audio.ctx) return;
@@ -247,8 +255,8 @@ function bendVoice(v, cents, glide = 0.025) {
 // ─────────────────────── professional experimental synth engines ───────────────────────
 const SYNTH_DEFAULTS = {
   abyss: { oscMix: 48, sub: 32, detune: 18, phase: 35, morph: 42, density: 58, cutoff: 3200, resonance: 3, lfoRate: 0.12, lfoDepth: 28, evolution: 35, width: 72, reverb: 55, delay: 28 },
-  mutant: { ratioA: 1, ratioB: 2.71, ratioC: 1.414, fmIndex: 38, modDepth: 42, modAttack: 12, pitchDrop: 24, shape: 35, cutoff: 5200, resonance: 6, drive: 28, motion: 42, width: 55 },
-  rift: { exciter: 55, resonators: 7, spread: 38, inharmonicity: 62, resonance: 48, decay: 65, ringFreq: 173, ringDepth: 42, combDelay: 18, feedback: 22, cutoff: 6200, drive: 35, width: 65 },
+  mutant: { ratioA: 1, ratioB: 2.71, ratioC: 1.414, fmIndex: 38, modDepth: 42, modAttack: 12, pitchDrop: 24, shape: 35, cutoff: 5200, resonance: 6, drive: 28, motion: 42, width: 55, reverb: 18, delay: 32 },
+  rift: { exciter: 55, resonators: 7, spread: 38, inharmonicity: 62, resonance: 48, decay: 65, ringFreq: 173, ringDepth: 42, combDelay: 18, feedback: 22, cutoff: 6200, drive: 35, width: 65, reverb: 42, delay: 24 },
   void: { grainSize: 180, density: 42, position: 48, pitch: 0, pitchRandom: 28, positionRandom: 55, texture: 62, filter: 4200, resonance: 3, modRate: 0.18, modDepth: 35, width: 78, reverb: 68, delay: 42 }
 };
 audio.synth = Object.fromEntries(Object.entries(SYNTH_DEFAULTS).map(([id, values]) => [id, { ...values }]));
@@ -267,6 +275,7 @@ function setSynthParameter(engine, name, value) {
   const range = ranges[name];
   if (!range || !Number.isFinite(Number(value))) return false;
   params[name] = clamp(Number(value), range[0], range[1]);
+  for (const voice of audio.activeVoices || []) if (voice.engine === engine && typeof voice.update === 'function') { try { voice.update(name, params[name]); } catch (_) {} }
   return true;
 }
 
@@ -298,6 +307,17 @@ function engineEnvelope(ctx, t, duration, peak, attack = 0.03, release = 0.4) {
   return g;
 }
 
+function routeEngineOutput(source, out, params) {
+  const ctx = audio.ctx;
+  const pan = ctx.createStereoPanner();
+  pan.pan.value = 0;
+  source.connect(pan); pan.connect(out);
+  let reverbSend = null, delaySend = null;
+  if (params && params.reverb != null) { reverbSend = ctx.createGain(); reverbSend.gain.value = params.reverb / 100 * 0.42; source.connect(reverbSend); reverbSend.connect(audio.reverb); }
+  if (params && params.delay != null) { delaySend = ctx.createGain(); delaySend.gain.value = params.delay / 100 * 0.36; source.connect(delaySend); delaySend.connect(audio.echoSend); }
+  return { pan, reverbSend, delaySend };
+}
+
 function buildAbyss(midi, t, vel, out, H) {
   const ctx = audio.ctx, p = audio.synth.abyss, f = midiHz(midi);
   const hold = H(7), dur = Math.min(hold + 2.2, 48), amp = engineEnvelope(ctx, t, dur, 0.19 * vel, 0.65, 1.8);
@@ -316,9 +336,20 @@ function buildAbyss(midi, t, vel, out, H) {
   const driftGain = ctx.createGain(); driftGain.gain.value = p.evolution * 0.08;
   drift.connect(driftGain); driftGain.connect(b.detune);
   low.connect(sub); a.connect(ga); b.connect(gb);
-  sub.connect(mix); ga.connect(mix); gb.connect(mix); mix.connect(filter); filter.connect(amp); amp.connect(out);
+  sub.connect(mix); ga.connect(mix); gb.connect(mix); mix.connect(filter); filter.connect(amp); const route=routeEngineOutput(amp,out,p);
   for (const n of [low,a,b,lfo,drift]) { VC.push(n); n.start(t); n.stop(t + dur + 0.05); }
-  return { duration: dur };
+  return { engine:'abyss', duration: dur, update(name,value) {
+    if(name==='cutoff') filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='resonance') filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='lfoRate') lfo.frequency.setTargetAtTime(value,ctx.currentTime,.05);
+    else if(name==='lfoDepth') lfoGain.gain.setTargetAtTime(value*18,ctx.currentTime,.05);
+    else if(name==='sub') sub.gain.setTargetAtTime(value/180,ctx.currentTime,.04);
+    else if(name==='oscMix') ga.gain.setTargetAtTime(.28+value/170,ctx.currentTime,.04);
+    else if(name==='morph') gb.gain.setTargetAtTime(.12+value/250,ctx.currentTime,.04);
+    else if(name==='detune') b.detune.setTargetAtTime(value/18000*1200,ctx.currentTime,.05);
+    else if(name==='reverb'&&route.reverbSend) route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
+    else if(name==='delay'&&route.delaySend) route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
+  } };
 }
 
 function buildMutant(midi, t, vel, out, H) {
@@ -340,12 +371,23 @@ function buildMutant(midi, t, vel, out, H) {
   const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=p.cutoff;filter.Q.value=p.resonance;
   const drive=ctx.createGain();drive.gain.value=1+p.drive/22;
   const amp=engineEnvelope(ctx,t,dur,0.22*vel,0.008,0.28);
-  carrier.connect(drive);drive.connect(sh);sh.connect(filter);filter.connect(amp);amp.connect(out);
+  carrier.connect(drive);drive.connect(sh);sh.connect(filter);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
   const pitch=ctx.createGain();pitch.gain.value=-f*(p.pitchDrop/100)*0.8;
   const pitchEnv=ctx.createOscillator();pitchEnv.type='sawtooth';pitchEnv.frequency.value=0.7+p.modAttack/32;
   const pg=ctx.createGain();pg.gain.value=pitch.gain.value;pitchEnv.connect(pg);pg.connect(carrier.detune);
   for(const n of [carrier,opA,opB,opC,pitchEnv]){VC.push(n);n.start(t);n.stop(t+dur+0.05);}
-  return {duration:dur};
+  return {engine:'mutant',duration:dur,update(name,value){
+    if(name==='ratioA')opA.frequency.setTargetAtTime(f*value,ctx.currentTime,.03);
+    else if(name==='ratioB')opB.frequency.setTargetAtTime(f*value,ctx.currentTime,.03);
+    else if(name==='ratioC')opC.frequency.setTargetAtTime(f*value,ctx.currentTime,.03);
+    else if(name==='fmIndex')cGain.gain.setTargetAtTime(f*(value/42),ctx.currentTime,.03);
+    else if(name==='modDepth')bGain.gain.setTargetAtTime(f*(value/58),ctx.currentTime,.03);
+    else if(name==='cutoff')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='resonance')filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='drive')drive.gain.setTargetAtTime(1+value/22,ctx.currentTime,.04);
+    else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
+    else if(name==='delay'&&route.delaySend)route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
+  }};
 }
 
 function buildRift(midi, t, vel, out, H) {
@@ -354,12 +396,12 @@ function buildRift(midi, t, vel, out, H) {
   const exciter=ctx.createOscillator();exciter.type='square';exciter.frequency.value=f;exciter.start(t);exciter.stop(t+dur+0.05);
   const exciteGain=ctx.createGain();exciteGain.gain.value=p.exciter/130;
   const source=ctx.createGain();noise.connect(exciteGain);exciter.connect(exciteGain);exciteGain.connect(source);
-  const sum=ctx.createGain();const count=Math.round(p.resonators);
+  const sum=ctx.createGain();const bands=[];const count=Math.round(p.resonators);
   for(let i=0;i<count;i++){
     const band=ctx.createBiquadFilter();band.type='bandpass';
     const ratio=1+(i+1)*(0.21+p.inharmonicity/160)+(i*i*p.inharmonicity/900);
     band.frequency.value=clamp(f*ratio*(1+(i-count/2)*p.spread/1800),80,16000);
-    band.Q.value=2+p.resonance*0.24;
+    band.Q.value=2+p.resonance*0.24;bands.push(band);
     const level=ctx.createGain();level.gain.value=1/Math.sqrt(count);
     source.connect(band);band.connect(level);level.connect(sum);
   }
@@ -376,17 +418,27 @@ function buildRift(midi, t, vel, out, H) {
   sum.connect(comb);comb.connect(feedback);feedback.connect(comb);comb.connect(wet);
   const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=p.cutoff;
   const amp=engineEnvelope(ctx,t,dur,0.2*vel,0.004,Math.max(0.12,p.decay/100*1.4));
-  const merged=ctx.createGain();ringCarrier.connect(merged);ringMod.connect(merged);wet.connect(merged);merged.connect(filter);filter.connect(amp);amp.connect(out);
+  const merged=ctx.createGain();ringCarrier.connect(merged);ringMod.connect(merged);wet.connect(merged);merged.connect(filter);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
   ring.start(t);ring.stop(t+dur+0.05);
   VC.push(noise,exciter,ring);
-  return {duration:dur};
+  return {engine:'rift',duration:dur,update(name,value){
+    if(name==='ringFreq')ring.frequency.setTargetAtTime(value,ctx.currentTime,.03);
+    else if(name==='ringDepth'){ringGain.gain.setTargetAtTime(value/100*.48,ctx.currentTime,.03);ringCarrier.gain.setTargetAtTime(1-value/100*.48,ctx.currentTime,.03);}
+    else if(name==='combDelay')comb.delayTime.setTargetAtTime(value/1000,ctx.currentTime,.03);
+    else if(name==='feedback')feedback.gain.setTargetAtTime(Math.min(.48,value/110),ctx.currentTime,.03);
+    else if(name==='cutoff')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='resonance')bands.forEach(b=>b.Q.setTargetAtTime(2+value*.24,ctx.currentTime,.04));
+    else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
+    else if(name==='delay'&&route.delaySend)route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
+  }};
 }
 
 function buildVoid(midi, t, vel, out, H) {
   const ctx=audio.ctx,p=audio.synth.void,buffer=proceduralTextureBuffer(ctx),hold=H(2.5),dur=Math.min(hold+0.5,46);
   const count=Math.round(8+p.density*0.16),grain=Math.max(0.04,p.grainSize/1000);
-  const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=p.filter;filter.Q.value=p.resonance;
-  const amp=engineEnvelope(ctx,t,dur,0.14*vel,0.12,0.5);filter.connect(amp);amp.connect(out);
+  const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=p.filter;
+  const pans=[];filter.Q.value=p.resonance;
+  const amp=engineEnvelope(ctx,t,dur,0.14*vel,0.12,0.5);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
   // Bounded looping grains: each source loops a short window to sustain a texture without timers or unbounded scheduling.
   const safeCount=Math.min(24,Math.max(6,count));
   for(let i=0;i<safeCount;i++){
@@ -398,12 +450,18 @@ function buildVoid(midi, t, vel, out, H) {
     source.loopStart=offset;source.loopEnd=offset+span;
     const pitch=p.pitch+(Math.random()*2-1)*p.pitchRandom/100*12;
     source.playbackRate.value=Math.pow(2,pitch/12);
-    const pan=ctx.createStereoPanner();pan.pan.value=clamp((i/(safeCount-1)*2-1)*(p.width/100),-1,1);
+    const pan=ctx.createStereoPanner();pan.pan.value=clamp((i/(safeCount-1)*2-1)*(p.width/100),-1,1);pans.push(pan);
     const grainGain=ctx.createGain();grainGain.gain.value=(0.18+ p.texture/180)/Math.sqrt(safeCount);
     source.connect(grainGain);grainGain.connect(pan);pan.connect(filter);
     source.start(t,offset);source.stop(t+dur+0.06);VC.push(source);
   }
-  return {duration:dur};
+  return {engine:'void',duration:dur,update(name,value){
+    if(name==='filter')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='resonance')filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
+    else if(name==='delay'&&route.delaySend)route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
+    else if(name==='width')pans.forEach((pan,i)=>pan.pan.setTargetAtTime((i/(pans.length-1)*2-1)*value/100,ctx.currentTime,.04));
+  }};
 }
 
 const SUSTAINS = { organ: 1, violin: 1, cello: 1, strings: 1, flute: 1, trumpet: 1, voices: 1, synth: 1, marimba: 1, kalimba: 1, steelpan: 1, bells: 1 };
