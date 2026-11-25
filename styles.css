@@ -133,3 +133,27 @@ button{border-color:#00d9ff47;background:#00d9ff0e;color:#d9fff0}button:hover{ba
 #psyConsole button{height:32px;padding:0 7px;justify-content:center;font-size:11px}#psyConsole button.active{background:#A000FF;border-color:#A000FF;color:white}#psyConsole .psy-macro{display:grid;grid-template-columns:58px 1fr 34px;align-items:center;gap:7px;margin:7px 0;font-size:11px;color:var(--mute)}#psyConsole input{width:100%;accent-color:#00D9FF}#psyConsole output{text-align:right;color:#d9fff0}
 #visualMode{position:fixed;z-index:7;left:14px;top:74px;display:flex;gap:5px;flex-wrap:wrap}#visualMode button{height:30px;padding:0 9px;font-size:10px}#visualMode button.active{border-color:#A000FF;color:white;background:#A000FF}#v2Visualizer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.48}
 @media(max-width:760px){#psyConsole{top:auto;bottom:148px;right:8px;width:250px}#visualMode{top:72px;left:8px;max-width:70vw}#visualMode button{height:27px;padding:0 6px}}@media(prefers-reduced-motion:reduce){#psyConsole *,#visualMode *{transition:none!important;animation:none!important}}
+
+
+/* Professional Sound Design console */
+#soundDesign{position:fixed;z-index:9;left:14px;top:118px;width:min(390px,calc(100vw - 28px));max-height:calc(100vh - 250px);overflow:auto;padding:13px;border:1px solid #A000FF88;border-radius:14px;background:linear-gradient(145deg,#071411f2,#10051bf2);backdrop-filter:blur(14px);box-shadow:0 12px 42px #0009;color:#eafff5}
+#soundDesign[hidden]{display:none}
+.sd-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.sd-head>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sd-kicker{font-size:9px;letter-spacing:.2em;color:#00FF9C;font-weight:800}
+#sdEngineTitle{font-size:12px;letter-spacing:.08em;color:#d9fff0}
+#soundDesign button,#soundDesign select{height:30px;min-height:30px;padding:0 8px;border-radius:7px;font-size:10px;background:#081c19;border-color:#00D9FF55}
+#soundDesign button:hover{border-color:#00D9FF}
+#soundDesign button.active{background:#A000FF;border-color:#A000FF;color:#fff}
+.sd-toolbar,.sd-actions{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0}
+.sd-toolbar select:first-child{flex:1;min-width:90px}
+.sd-toolbar select:nth-child(2){flex:1.4;min-width:110px}
+.sd-actions button{flex:1}
+.sd-section{border-top:1px solid #00D9FF28;padding:8px 0 5px}
+.sd-section h4{margin:0 0 7px;font-size:9px;letter-spacing:.16em;color:#A000FF}
+.sd-control{display:grid;grid-template-columns:104px minmax(50px,1fr) 40px;align-items:center;gap:7px;margin:7px 0;font-size:10px;color:#b7d9ce}
+.sd-control input{width:100%;accent-color:#00D9FF;min-width:0}
+.sd-control output{text-align:right;color:#eafff5;font-variant-numeric:tabular-nums}
+.sd-foot{display:flex;justify-content:space-between;gap:8px;border-top:1px solid #00D9FF28;padding-top:8px;margin-top:6px;color:#00FF9C;font-size:8px;letter-spacing:.1em}
+@media(max-width:760px){#soundDesign{top:auto;bottom:150px;left:8px;width:min(340px,calc(100vw - 16px));max-height:42vh;padding:10px}.sd-control{grid-template-columns:88px minmax(45px,1fr) 36px}}
+@media(prefers-reduced-motion:reduce){#soundDesign *{transition:none!important;animation:none!important}}
