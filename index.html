@@ -174,6 +174,16 @@
 
 <div id="visualMode" aria-label="Visualizer mode"><button data-visual="matrix" class="active">MATRIX</button><button data-visual="fractal">FRACTAL</button><button data-visual="oscilloscope">SCOPE</button><button data-visual="spectrum">SPECTRUM</button><button data-visual="off">OFF</button></div>
 <section id="psyConsole" aria-label="Psychedelic sound profiles"><div class="psy-head"><span>CYBER / PSY ENGINE</span><button id="psyToggle" aria-expanded="true">−</button></div><div id="psyBody"><div class="psy-profiles"><button data-profile="psychedelic" class="active">PSY</button><button data-profile="psyambient">AMBIENT</button><button data-profile="psytrance">TRANCE</button></div><label class="psy-macro"><span>PSY</span><input type="range" min="0" max="100" value="45" data-macro="psy"><output>45</output></label><label class="psy-macro"><span>DARK</span><input type="range" min="0" max="100" value="25" data-macro="dark"><output>25</output></label><label class="psy-macro"><span>MOTION</span><input type="range" min="0" max="100" value="35" data-macro="motion"><output>35</output></label></div></section>
+<section id="soundDesign" aria-label="Professional synthesizer sound design">
+  <div class="sd-head"><div><span class="sd-kicker">MUSICAM / SOUND LAB</span><strong id="sdEngineTitle">ABYSS — EVOLVING DRONE</strong></div><button id="sdToggle" aria-expanded="true" aria-label="Collapse sound design">−</button></div>
+  <div id="sdBody">
+    <div class="sd-toolbar"><select id="sdEngine" aria-label="Synth engine"><option value="abyss">ABYSS</option><option value="mutant">MUTANT</option><option value="rift">RIFT</option><option value="void">VOID</option></select><select id="sdPreset" aria-label="Preset"></select><button id="sdLoad">LOAD</button></div>
+    <div class="sd-actions"><button id="sdSave">SAVE PRESET</button><button id="sdRandom">RANDOMIZE</button><button id="sdA">STORE A</button><button id="sdB">STORE B</button><button id="sdCompare">A/B</button></div>
+    <div id="sdSections"></div>
+    <div class="sd-foot"><span id="sdStatus">ENGINE READY</span><span id="sdVoiceInfo">BOUNDED VOICE ENGINE</span></div>
+  </div>
+</section>
+
 <script>
 /* lamejs 1.2.1 MP3 encoder (LGPL-3.0), a JavaScript port of LAME: https://github.com/zhuker/lamejs · https://lame.sourceforge.net */
 function lamejs(){function X(c){return new Int32Array(c)}function K(c){return new Float32Array(c)}function ca(c){if(1==c.length)return K(c[0]);var k=c[0];c=c.slice(1);for(var n=[],u=0;u<k;u++)n.push(ca(c));return n}function Ia(c){if(1==c.length)return X(c[0]);var k=c[0];c=c.slice(1);for(var n=[],u=0;u<k;u++)n.push(Ia(c));return n}function dc(c){if(1==c.length)return new Int16Array(c[0]);var k=c[0];c=c.slice(1);for(var n=[],u=0;u<k;u++)n.push(dc(c));return n}function Ob(c){if(1==c.length)return Array(c[0]);
