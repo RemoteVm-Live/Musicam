@@ -339,6 +339,8 @@ function buildAbyss(midi, t, vel, out, H) {
   const ga = ctx.createGain(); ga.gain.value = 0.28 + p.oscMix / 170;
   const gb = ctx.createGain(); gb.gain.value = 0.12 + p.morph / 250;
   const sub = ctx.createGain(); sub.gain.value = p.sub / 180;
+  const phaseDelay = ctx.createDelay(0.02); phaseDelay.delayTime.value = clamp(p.phase / 360 / f, 0.00001, 0.02);
+  const textureNoise = noiseSrc(t, dur), noiseLevel = ctx.createGain(); noiseLevel.gain.value = p.density / 1800;
   const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = p.cutoff; filter.Q.value = p.resonance;
   const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = p.lfoRate;
   const lfoGain = ctx.createGain(); lfoGain.gain.value = p.lfoDepth * 18;
@@ -346,8 +348,9 @@ function buildAbyss(midi, t, vel, out, H) {
   const drift = ctx.createOscillator(); drift.type = 'sine'; drift.frequency.value = 0.025 + p.evolution / 1600;
   const driftGain = ctx.createGain(); driftGain.gain.value = p.evolution * 0.08;
   drift.connect(driftGain); driftGain.connect(b.detune);
-  low.connect(sub); a.connect(ga); b.connect(gb);
-  sub.connect(mix); ga.connect(mix); gb.connect(mix); mix.connect(filter); filter.connect(amp); const route=routeEngineOutput(amp,out,p);
+  low.connect(sub); a.connect(ga); b.connect(gb); gb.connect(phaseDelay); phaseDelay.connect(mix);
+  textureNoise.connect(noiseLevel); noiseLevel.connect(mix);
+  sub.connect(mix); ga.connect(mix); mix.connect(filter); filter.connect(amp); const route=routeEngineOutput(amp,out,p);
   for (const n of [low,a,b,lfo,drift]) { VC.push(n); n.start(t); n.stop(t + dur + 0.05); }
   return { engine:'abyss', duration: dur, update(name,value) {
     if(name==='cutoff') filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
@@ -358,6 +361,9 @@ function buildAbyss(midi, t, vel, out, H) {
     else if(name==='oscMix') ga.gain.setTargetAtTime(.28+value/170,ctx.currentTime,.04);
     else if(name==='morph') gb.gain.setTargetAtTime(.12+value/250,ctx.currentTime,.04);
     else if(name==='detune') b.detune.setTargetAtTime(value/18000*1200,ctx.currentTime,.05);
+    else if(name==='phase') phaseDelay.delayTime.setTargetAtTime(clamp(value/360/f,.00001,.02),ctx.currentTime,.04);
+    else if(name==='density') noiseLevel.gain.setTargetAtTime(value/1800,ctx.currentTime,.04);
+    else if(name==='evolution'){drift.frequency.setTargetAtTime(.025+value/1600,ctx.currentTime,.1);driftGain.gain.setTargetAtTime(value*.08,ctx.currentTime,.1);}
     else if(name==='width') route.setWidth(value);
     else if(name==='reverb'&&route.reverbSend) route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
     else if(name==='delay'&&route.delaySend) route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
@@ -385,9 +391,11 @@ function buildMutant(midi, t, vel, out, H) {
   const amp=engineEnvelope(ctx,t,dur,0.22*vel,0.008,0.28);
   carrier.connect(drive);drive.connect(sh);sh.connect(filter);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
   const pitch=ctx.createGain();pitch.gain.value=-f*(p.pitchDrop/100)*0.8;
+  const motionLfo=ctx.createOscillator();motionLfo.type='sine';motionLfo.frequency.value=.2+p.motion/24;
+  const motionGain=ctx.createGain();motionGain.gain.value=p.motion*0.12;motionLfo.connect(motionGain);motionGain.connect(carrier.detune);
   const pitchEnv=ctx.createOscillator();pitchEnv.type='sawtooth';pitchEnv.frequency.value=0.7+p.modAttack/32;
   const pg=ctx.createGain();pg.gain.value=pitch.gain.value;pitchEnv.connect(pg);pg.connect(carrier.detune);
-  for(const n of [carrier,opA,opB,opC,pitchEnv]){VC.push(n);n.start(t);n.stop(t+dur+0.05);}
+  for(const n of [carrier,opA,opB,opC,pitchEnv,motionLfo]){VC.push(n);n.start(t);n.stop(t+dur+0.05);}
   return {engine:'mutant',duration:dur,update(name,value){
     if(name==='ratioA')opA.frequency.setTargetAtTime(f*value,ctx.currentTime,.03);
     else if(name==='ratioB')opB.frequency.setTargetAtTime(f*value,ctx.currentTime,.03);
@@ -397,6 +405,10 @@ function buildMutant(midi, t, vel, out, H) {
     else if(name==='cutoff')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='resonance')filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='drive')drive.gain.setTargetAtTime(1+value/22,ctx.currentTime,.04);
+    else if(name==='pitchDrop')pg.gain.setTargetAtTime(-f*(value/100)*.8,ctx.currentTime,.04);
+    else if(name==='modAttack')pitchEnv.frequency.setTargetAtTime(.7+value/32,ctx.currentTime,.04);
+    else if(name==='motion'){motionLfo.frequency.setTargetAtTime(.2+value/24,ctx.currentTime,.04);motionGain.gain.setTargetAtTime(value*.12,ctx.currentTime,.04);}
+    else if(name==='shape'){const c=new Float32Array(1025),amount=1+value/13;for(let i=0;i<c.length;i++){const x=i/512-1;c[i]=Math.tanh(x*amount)}sh.curve=c;}
     else if(name==='width')route.setWidth(value);
     else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
     else if(name==='delay'&&route.delaySend)route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
@@ -409,13 +421,13 @@ function buildRift(midi, t, vel, out, H) {
   const exciter=ctx.createOscillator();exciter.type='square';exciter.frequency.value=f;exciter.start(t);exciter.stop(t+dur+0.05);
   const exciteGain=ctx.createGain();exciteGain.gain.value=p.exciter/130;
   const source=ctx.createGain();noise.connect(exciteGain);exciter.connect(exciteGain);exciteGain.connect(source);
-  const sum=ctx.createGain();const bands=[];const count=Math.round(p.resonators);
+  const sum=ctx.createGain();const bands=[],bandLevels=[],bandRatios=[];const count=Math.round(p.resonators);
   for(let i=0;i<count;i++){
     const band=ctx.createBiquadFilter();band.type='bandpass';
-    const ratio=1+(i+1)*(0.21+p.inharmonicity/160)+(i*i*p.inharmonicity/900);
+    const ratio=1+(i+1)*(0.21+p.inharmonicity/160)+(i*i*p.inharmonicity/900);bandRatios.push(ratio);
     band.frequency.value=clamp(f*ratio*(1+(i-count/2)*p.spread/1800),80,16000);
     band.Q.value=2+p.resonance*0.24;bands.push(band);
-    const level=ctx.createGain();level.gain.value=1/Math.sqrt(count);
+    const level=ctx.createGain();level.gain.value=1/Math.sqrt(count);bandLevels.push(level);
     source.connect(band);band.connect(level);level.connect(sum);
   }
   const ring=ctx.createOscillator();ring.type='sine';ring.frequency.value=p.ringFreq;
@@ -431,11 +443,17 @@ function buildRift(midi, t, vel, out, H) {
   sum.connect(comb);comb.connect(feedback);feedback.connect(comb);comb.connect(wet);
   const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=p.cutoff;
   const amp=engineEnvelope(ctx,t,dur,0.2*vel,0.004,Math.max(0.12,p.decay/100*1.4));
-  const merged=ctx.createGain();ringCarrier.connect(merged);ringMod.connect(merged);wet.connect(merged);merged.connect(filter);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
+  const merged=ctx.createGain();ringCarrier.connect(merged);ringMod.connect(merged);wet.connect(merged);
+  const drive=ctx.createGain();drive.gain.value=1+p.drive/25;const shaper=ctx.createWaveShaper(),curve=new Float32Array(513);for(let i=0;i<curve.length;i++){const x=i/256-1;curve[i]=Math.tanh(x*drive.gain.value)}shaper.curve=curve;shaper.oversample='2x';
+  merged.connect(drive);drive.connect(shaper);shaper.connect(filter);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
   ring.start(t);ring.stop(t+dur+0.05);
   VC.push(noise,exciter,ring);
   return {engine:'rift',duration:dur,update(name,value){
-    if(name==='ringFreq')ring.frequency.setTargetAtTime(value,ctx.currentTime,.03);
+    if(name==='exciter')exciteGain.gain.setTargetAtTime(value/130,ctx.currentTime,.03);
+    else if(name==='resonators')bandLevels.forEach((g,i)=>g.gain.setTargetAtTime(i<Math.round(value)?1/Math.sqrt(Math.round(value)):0,ctx.currentTime,.04));
+    else if(name==='spread'||name==='inharmonicity')bands.forEach((b,i)=>{const inh=name==='inharmonicity'?value:p.inharmonicity,sp=name==='spread'?value:p.spread,ratio=1+(i+1)*(.21+inh/160)+(i*i*inh/900);b.frequency.setTargetAtTime(clamp(f*ratio*(1+(i-bands.length/2)*sp/1800),80,16000),ctx.currentTime,.04)});
+    else if(name==='drive'){drive.gain.setTargetAtTime(1+value/25,ctx.currentTime,.04);const c=new Float32Array(513),amount=1+value/25;for(let i=0;i<c.length;i++){const x=i/256-1;c[i]=Math.tanh(x*amount)}shaper.curve=c;}
+    else if(name==='ringFreq')ring.frequency.setTargetAtTime(value,ctx.currentTime,.03);
     else if(name==='ringDepth'){ringGain.gain.setTargetAtTime(value/100*.48,ctx.currentTime,.03);ringCarrier.gain.setTargetAtTime(1-value/100*.48,ctx.currentTime,.03);}
     else if(name==='combDelay')comb.delayTime.setTargetAtTime(value/1000,ctx.currentTime,.03);
     else if(name==='feedback')feedback.gain.setTargetAtTime(Math.min(.48,value/110),ctx.currentTime,.03);
@@ -451,7 +469,8 @@ function buildVoid(midi, t, vel, out, H) {
   const ctx=audio.ctx,p=audio.synth.void,buffer=proceduralTextureBuffer(ctx),hold=H(2.5),dur=Math.min(hold+0.5,46);
   const count=Math.round(8+p.density*0.16),grain=Math.max(0.04,p.grainSize/1000);
   const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=p.filter;
-  const pans=[];filter.Q.value=p.resonance;
+  const pans=[],grainSources=[],grainGains=[],grainOffsets=[],grainPitchOffsets=[];filter.Q.value=p.resonance;
+  const motion=ctx.createOscillator(),motionGain=ctx.createGain();motion.type='sine';motion.frequency.value=p.modRate;motionGain.gain.value=p.modDepth*18;motion.connect(motionGain);motionGain.connect(filter.frequency);motion.start(t);motion.stop(t+dur+.05);VC.push(motion);
   const amp=engineEnvelope(ctx,t,dur,0.14*vel,0.12,0.5);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
   // Bounded looping grains: each source loops a short window to sustain a texture without timers or unbounded scheduling.
   const safeCount=Math.min(24,Math.max(6,count));
@@ -467,10 +486,17 @@ function buildVoid(midi, t, vel, out, H) {
     const pan=ctx.createStereoPanner();pan.pan.value=clamp((i/(safeCount-1)*2-1)*(p.width/100),-1,1);pans.push(pan);
     const grainGain=ctx.createGain();grainGain.gain.value=(0.18+ p.texture/180)/Math.sqrt(safeCount);
     source.connect(grainGain);grainGain.connect(pan);pan.connect(filter);
+    grainSources.push(source);grainGains.push(grainGain);grainOffsets.push(offset);grainPitchOffsets.push(pitch);
     source.start(t,offset);source.stop(t+dur+0.06);VC.push(source);
   }
   return {engine:'void',duration:dur,update(name,value){
     if(name==='filter')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='modRate')motion.frequency.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='modDepth')motionGain.gain.setTargetAtTime(value*18,ctx.currentTime,.04);
+    else if(name==='grainSize')grainSources.forEach((source,i)=>{const end=Math.min(buffer.duration-.005,grainOffsets[i]+Math.min(value/1000,.42));if(end>source.loopStart+.02)source.loopEnd=end});
+    else if(name==='position')grainSources.forEach((source,i)=>{const span=source.loopEnd-source.loopStart,max=buffer.duration-span-.01,offset=clamp(value/100*max,0,max);source.loopStart=offset;source.loopEnd=offset+span});
+    else if(name==='pitch')grainSources.forEach((source,i)=>source.playbackRate.setTargetAtTime(Math.pow(2,(value+grainPitchOffsets[i]-p.pitch)/12),ctx.currentTime,.04));
+    else if(name==='texture')grainGains.forEach(g=>g.gain.setTargetAtTime((.18+value/180)/Math.sqrt(safeCount),ctx.currentTime,.04));
     else if(name==='resonance')filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
     else if(name==='delay'&&route.delaySend)route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
