@@ -332,7 +332,7 @@ function routeEngineOutput(source, out, params) {
 
 function buildAbyss(midi, t, vel, out, H) {
   const ctx = audio.ctx, p = audio.synth.abyss, f = midiHz(midi);
-  const hold = H(7), dur = Math.min(hold + 2.2, 48), amp = engineEnvelope(ctx, t, dur, 0.19 * vel, 0.65, 1.8);
+  const hold = H(7), dur = hold >= 40 ? 3600 : hold + 2.2, amp = engineEnvelope(ctx, t, dur, 0.19 * vel, 0.65, 1.8);
   const mix = ctx.createGain(); mix.gain.value = 1;
   const low = ctx.createOscillator(); low.type = 'sine'; low.frequency.value = f / 2;
   const a = ctx.createOscillator(); a.type = 'sawtooth'; a.frequency.value = f;
@@ -373,7 +373,7 @@ function buildAbyss(midi, t, vel, out, H) {
 
 function buildMutant(midi, t, vel, out, H) {
   const ctx = audio.ctx, p = audio.synth.mutant, f = midiHz(midi);
-  const hold = H(0.8), dur = Math.min(hold + 0.35, 46);
+  const hold = H(0.8), dur = hold >= 40 ? 3600 : hold + 0.35;
   const carrier = ctx.createOscillator(); carrier.type = 'sawtooth'; carrier.frequency.value = f;
   const opA = ctx.createOscillator(); opA.type = 'sine'; opA.frequency.value = f * p.ratioA;
   const opB = ctx.createOscillator(); opB.type = 'triangle'; opB.frequency.value = f * p.ratioB;
@@ -416,7 +416,7 @@ function buildMutant(midi, t, vel, out, H) {
 }
 
 function buildRift(midi, t, vel, out, H) {
-  const ctx=audio.ctx,p=audio.synth.rift,f=midiHz(midi),hold=H(1.2),dur=Math.min(hold+0.8,46);
+  const ctx=audio.ctx,p=audio.synth.rift,f=midiHz(midi),hold=H(1.2),dur=hold>=40?3600:hold+0.8;
   const noise=ctx.createBufferSource();noise.buffer=audio.noise;noise.loop=true;noise.start(t);noise.stop(t+dur+0.05);
   const exciter=ctx.createOscillator();exciter.type='square';exciter.frequency.value=f;exciter.start(t);exciter.stop(t+dur+0.05);
   const exciteGain=ctx.createGain();exciteGain.gain.value=p.exciter/130;
@@ -466,7 +466,7 @@ function buildRift(midi, t, vel, out, H) {
 }
 
 function buildVoid(midi, t, vel, out, H) {
-  const ctx=audio.ctx,p=audio.synth.void,buffer=proceduralTextureBuffer(ctx),hold=H(2.5),dur=Math.min(hold+0.5,46);
+  const ctx=audio.ctx,p=audio.synth.void,buffer=proceduralTextureBuffer(ctx),hold=H(2.5),dur=hold>=40?3600:hold+0.5;
   const count=Math.round(8+p.density*0.16),grain=Math.max(0.04,p.grainSize/1000);
   const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=p.filter;
   const pans=[],grainSources=[],grainGains=[],grainOffsets=[],grainPitchOffsets=[];filter.Q.value=p.resonance;
