@@ -259,6 +259,7 @@ const SYNTH_DEFAULTS = {
   rift: { exciter: 55, resonators: 7, spread: 38, inharmonicity: 62, resonance: 48, decay: 65, ringFreq: 173, ringDepth: 42, combDelay: 18, feedback: 22, cutoff: 6200, drive: 35, width: 65, reverb: 42, delay: 24 },
   void: { grainSize: 180, density: 42, position: 48, pitch: 0, pitchRandom: 28, positionRandom: 55, texture: 62, filter: 4200, resonance: 3, modRate: 0.18, modDepth: 35, width: 78, reverb: 68, delay: 42 }
 };
+audio.synthDefaults = SYNTH_DEFAULTS;
 audio.synth = Object.fromEntries(Object.entries(SYNTH_DEFAULTS).map(([id, values]) => [id, { ...values }]));
 audio.synthBuffers = new Map();
 
@@ -1540,7 +1541,7 @@ export function installAudioExperience(r) {
     void:{psy:['density','pitchRandom'],dark:['filter','texture'],motion:['modRate','positionRandom'],space:['reverb','delay','width']}
   };
   const applyMacros = () => {
-    const base=SYNTH_DEFAULTS[currentEngine], map=macroMap[currentEngine];
+    const base=a.synthDefaults[currentEngine], map=macroMap[currentEngine];
     Object.entries(map).forEach(([macro,keys])=>{
       const amount=values[macro]/100;
       keys.forEach(key=>{
@@ -1555,6 +1556,8 @@ export function installAudioExperience(r) {
     renderControls();
   };
   root.querySelectorAll('[data-profile]').forEach(button=>button.addEventListener('click',()=>applyMacros()));
+  if(engineSelect)engineSelect.addEventListener('change',()=>applyMacros());
+  applyMacros();
   root.querySelectorAll('[data-macro]').forEach(input=>input.addEventListener('input',()=>{
     if(input.dataset.macro==='space') { values.space=clampValue(input.value,0,100); applyMacros(); }
     else if(['psy','dark','motion'].includes(input.dataset.macro)){values[input.dataset.macro]=clampValue(input.value,0,100);applyMacros();}
