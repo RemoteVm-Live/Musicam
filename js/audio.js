@@ -391,12 +391,11 @@ function buildMutant(midi, t, vel, out, H) {
   const drive=ctx.createGain();drive.gain.value=1+p.drive/22;
   const amp=engineEnvelope(ctx,t,dur,0.22*vel,0.008,0.28);
   carrier.connect(drive);drive.connect(sh);sh.connect(filter);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
-  const pitch=ctx.createGain();pitch.gain.value=-f*(p.pitchDrop/100)*0.8;
+  carrier.detune.setValueAtTime(-p.pitchDrop*4,t);
+  carrier.detune.linearRampToValueAtTime(0,t+0.04+p.modAttack/100*0.5);
   const motionLfo=ctx.createOscillator();motionLfo.type='sine';motionLfo.frequency.value=.2+p.motion/24;
   const motionGain=ctx.createGain();motionGain.gain.value=p.motion*0.12;motionLfo.connect(motionGain);motionGain.connect(carrier.detune);
-  const pitchEnv=ctx.createOscillator();pitchEnv.type='sawtooth';pitchEnv.frequency.value=0.7+p.modAttack/32;
-  const pg=ctx.createGain();pg.gain.value=pitch.gain.value;pitchEnv.connect(pg);pg.connect(carrier.detune);
-  for(const n of [carrier,opA,opB,opC,pitchEnv,motionLfo]){VC.push(n);n.start(t);n.stop(t+dur+0.05);}
+  for(const n of [carrier,opA,opB,opC,motionLfo]){VC.push(n);n.start(t);n.stop(t+dur+0.05);}
   return {engine:'mutant',duration:dur,update(name,value){
     if(name==='ratioA')opA.frequency.setTargetAtTime(f*value,ctx.currentTime,.03);
     else if(name==='ratioB')opB.frequency.setTargetAtTime(f*value,ctx.currentTime,.03);
@@ -406,8 +405,8 @@ function buildMutant(midi, t, vel, out, H) {
     else if(name==='cutoff')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='resonance')filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='drive')drive.gain.setTargetAtTime(1+value/22,ctx.currentTime,.04);
-    else if(name==='pitchDrop')pg.gain.setTargetAtTime(-f*(value/100)*.8,ctx.currentTime,.04);
-    else if(name==='modAttack')pitchEnv.frequency.setTargetAtTime(.7+value/32,ctx.currentTime,.04);
+    else if(name==='pitchDrop'){carrier.detune.cancelScheduledValues(ctx.currentTime);carrier.detune.setValueAtTime(carrier.detune.value,ctx.currentTime);carrier.detune.linearRampToValueAtTime(0,ctx.currentTime+0.04+p.modAttack/100*.5);}
+    else if(name==='modAttack'){carrier.detune.cancelScheduledValues(ctx.currentTime);carrier.detune.setValueAtTime(carrier.detune.value,ctx.currentTime);carrier.detune.linearRampToValueAtTime(0,ctx.currentTime+0.04+value/100*.5);}
     else if(name==='motion'){motionLfo.frequency.setTargetAtTime(.2+value/24,ctx.currentTime,.04);motionGain.gain.setTargetAtTime(value*.12,ctx.currentTime,.04);}
     else if(name==='shape'){const c=new Float32Array(1025),amount=1+value/13;for(let i=0;i<c.length;i++){const x=i/512-1;c[i]=Math.tanh(x*amount)}sh.curve=c;}
     else if(name==='width')route.setWidth(value);
@@ -476,12 +475,16 @@ function buildVoid(midi, t, vel, out, H) {
   // Bounded looping grains: each source loops a short window to sustain a texture without timers or unbounded scheduling.
   const safeCount=Math.min(24,Math.max(1,count),Math.max(0,96-audio.activeGrains));
   for(let i=0;i<safeCount;i++){
-    const source=ctx.createBufferSource();source._musicamGrain=true;audio.activeGrains++;source.buffer=buffer;source.loop=true;
+    const source=ctx.createBufferSource();source._musicamGrain=true;audio.activeGrains++;
     const span=Math.min(grain,0.42),maxStart=Math.max(0.01,buffer.duration-span-0.01);
     const center=(p.position/100)*maxStart;
     const jitter=(Math.random()*2-1)*(p.positionRandom/100)*maxStart*0.45;
     const offset=clamp(center+jitter,0,maxStart);
-    source.loopStart=offset;source.loopEnd=offset+span;
+    const grainFrames=Math.max(128,Math.floor(span*ctx.sampleRate));
+    const grainBuffer=ctx.createBuffer(1,grainFrames,ctx.sampleRate),grainData=grainBuffer.getChannelData(0),textureData=buffer.getChannelData(0);
+    const sourceStart=Math.floor(offset*ctx.sampleRate);
+    for(let j=0;j<grainFrames;j++){const ix=(sourceStart+j)%textureData.length;const window=.5-.5*Math.cos(2*Math.PI*j/(grainFrames-1));grainData[j]=textureData[ix]*window;}
+    source.buffer=grainBuffer;source.loop=true;source.loopStart=0;source.loopEnd=grainBuffer.duration;
     const pitch=p.pitch+(Math.random()*2-1)*p.pitchRandom/100*12;
     source.playbackRate.value=Math.pow(2,pitch/12);
     const pan=ctx.createStereoPanner();pan.pan.value=clamp((i/(safeCount-1)*2-1)*(p.width/100),-1,1);pans.push(pan);
@@ -494,8 +497,7 @@ function buildVoid(midi, t, vel, out, H) {
     if(name==='filter')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='modRate')motion.frequency.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='modDepth')motionGain.gain.setTargetAtTime(value*18,ctx.currentTime,.04);
-    else if(name==='grainSize')grainSources.forEach((source,i)=>{const end=Math.min(buffer.duration-.005,grainOffsets[i]+Math.min(value/1000,.42));if(end>source.loopStart+.02)source.loopEnd=end});
-    else if(name==='position')grainSources.forEach((source,i)=>{const span=source.loopEnd-source.loopStart,max=buffer.duration-span-.01,offset=clamp(value/100*max,0,max);source.loopStart=offset;source.loopEnd=offset+span});
+    else if(name==='grainSize'||name==='position'||name==='positionRandom'){ /* grain buffers are immutable; these structural controls apply to newly triggered notes */ }
     else if(name==='pitch')grainSources.forEach((source,i)=>source.playbackRate.setTargetAtTime(Math.pow(2,(value+grainPitchOffsets[i])/12),ctx.currentTime,.04));
     else if(name==='pitchRandom')grainSources.forEach((source,i)=>{grainPitchOffsets[i]=(Math.random()*2-1)*value/100*12;source.playbackRate.setTargetAtTime(Math.pow(2,(p.pitch+grainPitchOffsets[i])/12),ctx.currentTime,.04)});
     else if(name==='density')grainGains.forEach(g=>g.gain.setTargetAtTime((.18+p.texture/180)*Math.min(1,value/45)/Math.sqrt(safeCount),ctx.currentTime,.04));
