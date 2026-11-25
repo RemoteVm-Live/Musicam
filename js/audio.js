@@ -1,7 +1,7 @@
 export function createAudioModule(ctx) {
 const { W, H, $, $$, clamp, lerp, dist, nowS, NOTE_NAMES, SHARP_NAMES, FLAT_NAMES, spell, SCALES, SCALE_ORDER, DRUM_ZONES, HAND_ZONES, INSTRUMENTS, INSTRUMENT_ORDER, own, MAX_STRINGS, MAX_LAYERS, state, hexA, toast, strRoot, strScale, strLen, strMid, orient, zoneCount, zoneInfo, stringLabel, addString, removeString, clearStrings, pluck, notePop, keepVoices, bendString, ROLLS, HOLD_IN, HOLD_OUT, HOLD_AFTER, holdNote, rollGap, startHold, endHold, updateHolds, sweep, forgetPointer, nearestBody, PULL_MAX, BEND_CENTS, pullString, releasePull, burst, nearestEndpoint, nearestDot, distToString, menuItems, MENU_TITLES, openMenu, menuContains, closeMenu, menuIdle, chooseMenu, pluckQuiet, updateMenu, film, enterClean, leaveClean, startFilm, stopFilm, toggleClean, setShape, SETUP_STORE, STARTERS, starterSetup, snapshot, applySetup, storedSetups, storeSetups, saveSetup, refreshSetups, setupToFile, setupFromFile, openModal, closeModal, buildChips, refreshUI, mixRowsHTML, nudgeVolume, currentHint, layoutStage, initUI, lastT, fpsN, fpsT, hintShown, ledShown, chordShown, frame, demo, demoHandPoints, demoHands, sleep, tween, both, canvasPosOf, demoStretch, demoChoose, demoPress, demoPluck, runDemo, boot } = ctx;
 // ───────────────────────── sound engine (all synthesised, no samples) ─────────────────────────
-const audio = { ctx: null, ready: false, ks: new Map(), activeVoices: new Set() };
+const audio = { ctx: null, ready: false, ks: new Map(), activeVoices: new Set(), activeGrains: 0, activeResonators: 0 };
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
 
 // Builds the whole mixing graph on a context. The live one is built once; stems are rendered by
@@ -231,7 +231,7 @@ function playNote(id, midi, t, vel, dest, len, o) {
     audio.activeVoices.add(voice);
     let remaining = srcs.length;
     if (!remaining) audio.activeVoices.delete(voice);
-    srcs.forEach(source => { source.onended = () => { if (--remaining <= 0) audio.activeVoices.delete(voice); }; });
+    srcs.forEach(source => { source.onended = () => { if (source._musicamGrain) audio.activeGrains = Math.max(0,audio.activeGrains-1); if (source._musicamResonators) audio.activeResonators = Math.max(0,audio.activeResonators-source._musicamResonators); if (--remaining <= 0) audio.activeVoices.delete(voice); }; });
   }
   return voice;
 }
@@ -422,7 +422,7 @@ function buildRift(midi, t, vel, out, H) {
   const exciter=ctx.createOscillator();exciter.type='square';exciter.frequency.value=f;exciter.start(t);exciter.stop(t+dur+0.05);
   const exciteGain=ctx.createGain();exciteGain.gain.value=p.exciter/130;
   const source=ctx.createGain();noise.connect(exciteGain);exciter.connect(exciteGain);exciteGain.connect(source);
-  const sum=ctx.createGain();const bands=[],bandLevels=[],bandRatios=[];const count=Math.round(p.resonators);
+  const sum=ctx.createGain();const bands=[],bandLevels=[],bandRatios=[];const count=Math.min(Math.round(p.resonators),Math.max(1,96-audio.activeResonators));audio.activeResonators+=count;noise._musicamResonators=count;
   for(let i=0;i<count;i++){
     const band=ctx.createBiquadFilter();band.type='bandpass';
     const ratio=1+(i+1)*(0.21+p.inharmonicity/160)+(i*i*p.inharmonicity/900);bandRatios.push(ratio);
@@ -474,9 +474,9 @@ function buildVoid(midi, t, vel, out, H) {
   const motion=ctx.createOscillator(),motionGain=ctx.createGain();motion.type='sine';motion.frequency.value=p.modRate;motionGain.gain.value=p.modDepth*18;motion.connect(motionGain);motionGain.connect(filter.frequency);motion.start(t);motion.stop(t+dur+.05);VC.push(motion);
   const amp=engineEnvelope(ctx,t,dur,0.14*vel,0.12,0.5);filter.connect(amp);const route=routeEngineOutput(amp,out,p);
   // Bounded looping grains: each source loops a short window to sustain a texture without timers or unbounded scheduling.
-  const safeCount=Math.min(24,Math.max(6,count));
+  const safeCount=Math.min(24,Math.max(1,count),Math.max(0,96-audio.activeGrains));
   for(let i=0;i<safeCount;i++){
-    const source=ctx.createBufferSource();source.buffer=buffer;source.loop=true;
+    const source=ctx.createBufferSource();source._musicamGrain=true;audio.activeGrains++;source.buffer=buffer;source.loop=true;
     const span=Math.min(grain,0.42),maxStart=Math.max(0.01,buffer.duration-span-0.01);
     const center=(p.position/100)*maxStart;
     const jitter=(Math.random()*2-1)*(p.positionRandom/100)*maxStart*0.45;
