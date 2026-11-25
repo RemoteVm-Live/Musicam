@@ -486,7 +486,7 @@ function buildVoid(midi, t, vel, out, H) {
     const pan=ctx.createStereoPanner();pan.pan.value=clamp((i/(safeCount-1)*2-1)*(p.width/100),-1,1);pans.push(pan);
     const grainGain=ctx.createGain();grainGain.gain.value=(0.18+ p.texture/180)/Math.sqrt(safeCount);
     source.connect(grainGain);grainGain.connect(pan);pan.connect(filter);
-    grainSources.push(source);grainGains.push(grainGain);grainOffsets.push(offset);grainPitchOffsets.push(pitch);
+    grainSources.push(source);grainGains.push(grainGain);grainOffsets.push(offset);grainPitchOffsets.push(pitch-p.pitch);
     source.start(t,offset);source.stop(t+dur+0.06);VC.push(source);
   }
   return {engine:'void',duration:dur,update(name,value){
@@ -495,7 +495,10 @@ function buildVoid(midi, t, vel, out, H) {
     else if(name==='modDepth')motionGain.gain.setTargetAtTime(value*18,ctx.currentTime,.04);
     else if(name==='grainSize')grainSources.forEach((source,i)=>{const end=Math.min(buffer.duration-.005,grainOffsets[i]+Math.min(value/1000,.42));if(end>source.loopStart+.02)source.loopEnd=end});
     else if(name==='position')grainSources.forEach((source,i)=>{const span=source.loopEnd-source.loopStart,max=buffer.duration-span-.01,offset=clamp(value/100*max,0,max);source.loopStart=offset;source.loopEnd=offset+span});
-    else if(name==='pitch')grainSources.forEach((source,i)=>source.playbackRate.setTargetAtTime(Math.pow(2,(value+grainPitchOffsets[i]-p.pitch)/12),ctx.currentTime,.04));
+    else if(name==='pitch')grainSources.forEach((source,i)=>source.playbackRate.setTargetAtTime(Math.pow(2,(value+grainPitchOffsets[i])/12),ctx.currentTime,.04));
+    else if(name==='pitchRandom')grainSources.forEach((source,i)=>{grainPitchOffsets[i]=(Math.random()*2-1)*value/100*12;source.playbackRate.setTargetAtTime(Math.pow(2,(p.pitch+grainPitchOffsets[i])/12),ctx.currentTime,.04)});
+    else if(name==='density')grainGains.forEach(g=>g.gain.setTargetAtTime((.18+p.texture/180)*Math.min(1,value/45)/Math.sqrt(safeCount),ctx.currentTime,.04));
+    else if(name==='positionRandom')grainSources.forEach((source,i)=>{const span=source.loopEnd-source.loopStart,max=buffer.duration-span-.01,center=(p.position/100)*max,offset=clamp(center+(Math.random()*2-1)*value/100*max*.45,0,max);source.loopStart=offset;source.loopEnd=offset+span;grainOffsets[i]=offset});
     else if(name==='texture')grainGains.forEach(g=>g.gain.setTargetAtTime((.18+value/180)/Math.sqrt(safeCount),ctx.currentTime,.04));
     else if(name==='resonance')filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
@@ -1346,9 +1349,9 @@ export function installAudioExperience(r) {
     abyss: { title:'ABYSS — EVOLVING DRONE', sections:{
       SOURCE:['oscMix','sub','detune','phase'], SPECTRAL:['morph','density','evolution'], FILTER:['cutoff','resonance'], MODULATION:['lfoRate','lfoDepth'], SPACE:['width','reverb','delay'] } },
     mutant: { title:'MUTANT — THREE OPERATOR FM', sections:{
-      OPERATORS:['ratioA','ratioB','ratioC'], FM:['fmIndex','modDepth','modAttack','pitchDrop'], TIMBRE:['shape','drive'], FILTER:['cutoff','resonance'], MOTION:['motion','width'] } },
+      OPERATORS:['ratioA','ratioB','ratioC'], FM:['fmIndex','modDepth','modAttack','pitchDrop'], TIMBRE:['shape','drive'], FILTER:['cutoff','resonance'], MOTION:['motion','width'], SPACE:['reverb','delay'] } },
     rift: { title:'RIFT — INHARMONIC RESONATOR', sections:{
-      EXCITER:['exciter','resonators'], RESONATOR:['spread','inharmonicity','resonance','decay'], RING_MOD:['ringFreq','ringDepth'], COMB:['combDelay','feedback'], OUTPUT:['cutoff','drive','width'] } },
+      EXCITER:['exciter','resonators'], RESONATOR:['spread','inharmonicity','resonance','decay'], RING_MOD:['ringFreq','ringDepth'], COMB:['combDelay','feedback'], OUTPUT:['cutoff','drive','width'], SPACE:['reverb','delay'] } },
     void: { title:'VOID — GRANULAR TEXTURE', sections:{
       GRAINS:['grainSize','density','position','positionRandom'], PITCH:['pitch','pitchRandom'], TEXTURE:['texture'], FILTER:['filter','resonance'], MOTION:['modRate','modDepth','width'], SPACE:['reverb','delay'] } }
   };
@@ -1400,6 +1403,7 @@ export function installAudioExperience(r) {
   const status = document.querySelector('#sdStatus');
   const title = document.querySelector('#sdEngineTitle');
   const snapshots = { A:null, B:null };
+  let activeSlot = 'A';
   let currentEngine = 'abyss';
   const persistKey = 'musicam.soundDesign.presets.v1';
   const readSaved = () => { try { return JSON.parse(localStorage.getItem(persistKey) || '{}'); } catch (_) { return {}; } };
@@ -1482,13 +1486,13 @@ export function installAudioExperience(r) {
     });
     applyPatch(currentEngine,patch);if(status)status.textContent='SAFE-RANGE RANDOM PATCH GENERATED';
   });
-  const saveSlot=slot=>{snapshots[slot]={...a.synth[currentEngine]};if(status)status.textContent='SLOT '+slot+' STORED'};
+  const saveSlot=slot=>{snapshots[slot]={...a.synth[currentEngine]};activeSlot=slot;if(status)status.textContent='SLOT '+slot+' STORED'};
   document.querySelector('#sdA')?.addEventListener('click',()=>saveSlot('A'));
   document.querySelector('#sdB')?.addEventListener('click',()=>saveSlot('B'));
   document.querySelector('#sdCompare')?.addEventListener('click',()=>{
-    const slot=snapshots.A?'A':snapshots.B?'B':null;
-    if(!slot){if(status)status.textContent='STORE A OR B FIRST';return;}
-    applyPatch(currentEngine,snapshots[slot]);if(status)status.textContent='RESTORED SLOT '+slot;
+    const other=activeSlot==='A'?'B':'A';
+    if(!snapshots[other]){if(status)status.textContent='STORE BOTH A AND B FIRST';return;}
+    activeSlot=other;applyPatch(currentEngine,snapshots[other]);if(status)status.textContent='A/B · ACTIVE SLOT '+other;
   });
   const sdToggle=document.querySelector('#sdToggle'),sdBody=document.querySelector('#sdBody');
   if(sdToggle&&sdBody)sdToggle.addEventListener('click',e=>{sdBody.hidden=!sdBody.hidden;e.currentTarget.textContent=sdBody.hidden?'+':'−';e.currentTarget.setAttribute('aria-expanded',String(!sdBody.hidden))});
