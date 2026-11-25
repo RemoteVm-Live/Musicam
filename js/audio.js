@@ -1540,7 +1540,18 @@ export function installAudioExperience(r) {
     activeSlot=other;applyPatch(currentEngine,snapshots[other][currentEngine]);if(status)status.textContent='A/B · ACTIVE SLOT '+other;
   });
   const sdToggle=document.querySelector('#sdToggle'),sdBody=document.querySelector('#sdBody');
-  if(sdToggle&&sdBody)sdToggle.addEventListener('click',e=>{sdBody.hidden=!sdBody.hidden;e.currentTarget.textContent=sdBody.hidden?'+':'−';e.currentTarget.setAttribute('aria-expanded',String(!sdBody.hidden))});
+  // Always initialize the Sound Lab expanded; the header control can collapse/reopen it.
+  if (sd) sd.hidden = false;
+  if (sdBody) sdBody.hidden = false;
+  if (sdToggle) {
+    sdToggle.textContent = '−';
+    sdToggle.setAttribute('aria-expanded','true');
+  }
+  if(sdToggle&&sdBody)sdToggle.addEventListener('click',e=>{
+    sdBody.hidden=!sdBody.hidden;
+    e.currentTarget.textContent=sdBody.hidden?'+':'−';
+    e.currentTarget.setAttribute('aria-expanded',String(!sdBody.hidden));
+  });
   chooseEngine('abyss');
 
   const macroMap = {
