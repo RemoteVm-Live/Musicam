@@ -1177,16 +1177,17 @@ export function installAudioExperience(r) {
   const sd = document.querySelector('#soundDesign');
   const clampValue = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || 0));
   if (!root || !a) return;
+  a.setSynthParameter = setSynthParameter;
 
   // Explicit profile definitions. Keep these local: the former implementation
   // referenced an undefined P symbol and aborted the remaining V2 installers.
   const profiles = {
-    psychedelic: { cut: 13500, echo: 0.18, delay: 0.42, psy: 45, dark: 25, motion: 35 },
+    psychedelic: { cut: 13500, echo: 0.18, delay: 0.42, psy: 45, dark: 25, motion: 35, space: 45 },
     psyambient:  { cut: 6200,  echo: 0.36, delay: 0.90, psy: 30, dark: 70, motion: 18 },
     psytrance:   { cut: 16500, echo: 0.12, delay: 0.28, psy: 70, dark: 18, motion: 65 },
   };
   let profile = 'psychedelic';
-  const values = { psy: 45, dark: 25, motion: 35 };
+  const values = { psy: 45, dark: 25, motion: 35, space: 45 };
   const set = (param, value, time = 0.12) => {
     if (!param || !a.ctx) return;
     try { param.setTargetAtTime(value, a.ctx.currentTime, time); } catch (_) {}
@@ -1197,9 +1198,9 @@ export function installAudioExperience(r) {
     const psy = values.psy / 100;
     const dark = values.dark / 100;
     const motion = values.motion / 100;
-    set(a.lp && a.lp.frequency, clamp(p.cut * (1 - dark * 0.78), 650, 19000));
-    set(a.echoSend && a.echoSend.gain, clamp(p.echo + psy * 0.28 + motion * 0.12, 0, 0.72), 0.18);
-    set(a.echoDelay && a.echoDelay.delayTime, clamp(p.delay * (0.65 + motion * 0.8), 0.08, 1.45), 0.2);
+    set(a.lp && a.lp.frequency, clampValue(p.cut * (1 - dark * 0.78), 650, 19000));
+    set(a.echoSend && a.echoSend.gain, clampValue(p.echo + psy * 0.28 + motion * 0.12, 0, 0.72), 0.18);
+    set(a.echoDelay && a.echoDelay.delayTime, clampValue(p.delay * (0.65 + motion * 0.8), 0.08, 1.45), 0.2);
   };
   const select = name => {
     if (!Object.prototype.hasOwnProperty.call(profiles, name)) return;
@@ -1225,7 +1226,7 @@ export function installAudioExperience(r) {
     input.addEventListener('input', () => {
       const key = input.dataset.macro;
       if (!Object.prototype.hasOwnProperty.call(values, key)) return;
-      values[key] = clamp(Number(input.value) || 0, 0, 100);
+      values[key] = clampValue(Number(input.value) || 0, 0, 100);
       if (input.nextElementSibling) input.nextElementSibling.value = values[key];
       apply();
     });
@@ -1310,7 +1311,7 @@ export function installAudioExperience(r) {
       if (a.synth[engine] && Object.prototype.hasOwnProperty.call(a.synth[engine],key)) {
         a.synth[engine][key] = value;
         const meta = labels[key];
-        if (meta) a.setSynthParameter ? a.setSynthParameter(engine,key,value) : r.setSynthParameter(engine,key,value);
+        if (meta) a.setSynthParameter(engine,key,value);
       }
     });
     renderControls();
@@ -1330,7 +1331,7 @@ export function installAudioExperience(r) {
         const output=document.createElement('output');output.textContent=Number(value).toFixed(meta[3]==='Hz'&&value<100?1:0)+(meta[3]?' '+meta[3]:'');
         input.addEventListener('input',()=>{
           const n=Number(input.value);
-          r.setSynthParameter(currentEngine,key,n);
+          a.setSynthParameter(currentEngine,key,n);
           output.textContent=Number(n).toFixed(meta[3]==='Hz'&&n<100?1:0)+(meta[3]?' '+meta[3]:'');
           if(status)status.textContent='PARAMETER UPDATED · NEW NOTES USE CURRENT PATCH';
         });
@@ -1394,5 +1395,32 @@ export function installAudioExperience(r) {
   const sdToggle=document.querySelector('#sdToggle'),sdBody=document.querySelector('#sdBody');
   if(sdToggle&&sdBody)sdToggle.addEventListener('click',e=>{sdBody.hidden=!sdBody.hidden;e.currentTarget.textContent=sdBody.hidden?'+':'−';e.currentTarget.setAttribute('aria-expanded',String(!sdBody.hidden))});
   chooseEngine('abyss');
+
+  const macroMap = {
+    abyss:{psy:['morph','density'],dark:['cutoff','sub'],motion:['lfoRate','lfoDepth'],space:['reverb','delay','width']},
+    mutant:{psy:['fmIndex','modDepth','shape'],dark:['cutoff','drive'],motion:['motion','modAttack'],space:['width','motion']},
+    rift:{psy:['ringDepth','inharmonicity'],dark:['cutoff','feedback'],motion:['ringFreq','spread'],space:['width','feedback']},
+    void:{psy:['density','pitchRandom'],dark:['filter','texture'],motion:['modRate','positionRandom'],space:['reverb','delay','width']}
+  };
+  const applyMacros = () => {
+    const base=SYNTH_DEFAULTS[currentEngine], map=macroMap[currentEngine];
+    Object.entries(map).forEach(([macro,keys])=>{
+      const amount=values[macro]/100;
+      keys.forEach(key=>{
+        const range=labels[key];if(!range)return;
+        let value=base[key];
+        if(macro==='dark' && (key==='cutoff'||key==='filter')) value=range[1]*Math.pow(range[0]/range[1],amount);
+        else if(macro==='space') value=range[1]*amount;
+        else value=range[1]*amount;
+        a.setSynthParameter(currentEngine,key,value);
+      });
+    });
+    renderControls();
+  };
+  root.querySelectorAll('[data-macro]').forEach(input=>input.addEventListener('input',()=>{
+    if(input.dataset.macro==='space') { values.space=clampValue(input.value,0,100); applyMacros(); }
+    else if(['psy','dark','motion'].includes(input.dataset.macro)){values[input.dataset.macro]=clampValue(input.value,0,100);applyMacros();}
+  }));
+
 
 }
