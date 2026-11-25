@@ -309,13 +309,24 @@ function engineEnvelope(ctx, t, duration, peak, attack = 0.03, release = 0.4) {
 
 function routeEngineOutput(source, out, params) {
   const ctx = audio.ctx;
-  const pan = ctx.createStereoPanner();
-  pan.pan.value = 0;
-  source.connect(pan); pan.connect(out);
+  const mono = ctx.createGain(), left = ctx.createGain(), right = ctx.createGain();
+  const leftPan = ctx.createStereoPanner(), rightPan = ctx.createStereoPanner();
+  const spreadDelay = ctx.createDelay(0.03);
+  leftPan.pan.value = -1; rightPan.pan.value = 1; spreadDelay.delayTime.value = 0.009;
+  const setWidth = value => {
+    const w = clamp(value / 100, 0, 1);
+    mono.gain.setTargetAtTime(1 - w * 0.32, ctx.currentTime, 0.04);
+    left.gain.setTargetAtTime(w * 0.23, ctx.currentTime, 0.04);
+    right.gain.setTargetAtTime(w * 0.23, ctx.currentTime, 0.04);
+  };
+  source.connect(mono); mono.connect(out);
+  source.connect(left); left.connect(leftPan); leftPan.connect(out);
+  source.connect(right); right.connect(spreadDelay); spreadDelay.connect(rightPan); rightPan.connect(out);
+  setWidth(params && params.width != null ? params.width : 0);
   let reverbSend = null, delaySend = null;
   if (params && params.reverb != null) { reverbSend = ctx.createGain(); reverbSend.gain.value = params.reverb / 100 * 0.42; source.connect(reverbSend); reverbSend.connect(audio.reverb); }
   if (params && params.delay != null) { delaySend = ctx.createGain(); delaySend.gain.value = params.delay / 100 * 0.36; source.connect(delaySend); delaySend.connect(audio.echoSend); }
-  return { pan, reverbSend, delaySend };
+  return { pan: mono, setWidth, reverbSend, delaySend };
 }
 
 function buildAbyss(midi, t, vel, out, H) {
@@ -347,6 +358,7 @@ function buildAbyss(midi, t, vel, out, H) {
     else if(name==='oscMix') ga.gain.setTargetAtTime(.28+value/170,ctx.currentTime,.04);
     else if(name==='morph') gb.gain.setTargetAtTime(.12+value/250,ctx.currentTime,.04);
     else if(name==='detune') b.detune.setTargetAtTime(value/18000*1200,ctx.currentTime,.05);
+    else if(name==='width') route.setWidth(value);
     else if(name==='reverb'&&route.reverbSend) route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
     else if(name==='delay'&&route.delaySend) route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
   } };
@@ -385,6 +397,7 @@ function buildMutant(midi, t, vel, out, H) {
     else if(name==='cutoff')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='resonance')filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='drive')drive.gain.setTargetAtTime(1+value/22,ctx.currentTime,.04);
+    else if(name==='width')route.setWidth(value);
     else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
     else if(name==='delay'&&route.delaySend)route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
   }};
@@ -427,6 +440,7 @@ function buildRift(midi, t, vel, out, H) {
     else if(name==='combDelay')comb.delayTime.setTargetAtTime(value/1000,ctx.currentTime,.03);
     else if(name==='feedback')feedback.gain.setTargetAtTime(Math.min(.48,value/110),ctx.currentTime,.03);
     else if(name==='cutoff')filter.frequency.setTargetAtTime(value,ctx.currentTime,.04);
+    else if(name==='width')route.setWidth(value);
     else if(name==='resonance')bands.forEach(b=>b.Q.setTargetAtTime(2+value*.24,ctx.currentTime,.04));
     else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
     else if(name==='delay'&&route.delaySend)route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
@@ -460,7 +474,7 @@ function buildVoid(midi, t, vel, out, H) {
     else if(name==='resonance')filter.Q.setTargetAtTime(value,ctx.currentTime,.04);
     else if(name==='reverb'&&route.reverbSend)route.reverbSend.gain.setTargetAtTime(value/100*.42,ctx.currentTime,.05);
     else if(name==='delay'&&route.delaySend)route.delaySend.gain.setTargetAtTime(value/100*.36,ctx.currentTime,.05);
-    else if(name==='width')pans.forEach((pan,i)=>pan.pan.setTargetAtTime((i/(pans.length-1)*2-1)*value/100,ctx.currentTime,.04));
+    else if(name==='width'){route.setWidth(value);pans.forEach((pan,i)=>pan.pan.setTargetAtTime((i/(pans.length-1)*2-1)*value/100,ctx.currentTime,.04));}
   }};
 }
 
