@@ -1174,6 +1174,8 @@ return { audio, midiHz, buildGraph, initAudio, setFx, instBus, ksBuffer, env, VC
 export function installAudioExperience(r) {
   const root = document.querySelector('#psyConsole');
   const a = r && r.audio;
+  const sd = document.querySelector('#soundDesign');
+  const clampValue = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || 0));
   if (!root || !a) return;
 
   // Explicit profile definitions. Keep these local: the former implementation
@@ -1239,4 +1241,158 @@ export function installAudioExperience(r) {
   }
   document.addEventListener('pointerdown', apply, { capture: true });
   select('psychedelic');
+
+  // Full parameter-level sound design for the four replacement engines.
+  const engineMeta = {
+    abyss: { title:'ABYSS — EVOLVING DRONE', sections:{
+      SOURCE:['oscMix','sub','detune','phase'], SPECTRAL:['morph','density','evolution'], FILTER:['cutoff','resonance'], MODULATION:['lfoRate','lfoDepth'], SPACE:['width','reverb','delay'] } },
+    mutant: { title:'MUTANT — THREE OPERATOR FM', sections:{
+      OPERATORS:['ratioA','ratioB','ratioC'], FM:['fmIndex','modDepth','modAttack','pitchDrop'], TIMBRE:['shape','drive'], FILTER:['cutoff','resonance'], MOTION:['motion','width'] } },
+    rift: { title:'RIFT — INHARMONIC RESONATOR', sections:{
+      EXCITER:['exciter','resonators'], RESONATOR:['spread','inharmonicity','resonance','decay'], RING_MOD:['ringFreq','ringDepth'], COMB:['combDelay','feedback'], OUTPUT:['cutoff','drive','width'] } },
+    void: { title:'VOID — GRANULAR TEXTURE', sections:{
+      GRAINS:['grainSize','density','position','positionRandom'], PITCH:['pitch','pitchRandom'], TEXTURE:['texture'], FILTER:['filter','resonance'], MOTION:['modRate','modDepth','width'], SPACE:['reverb','delay'] } }
+  };
+  const labels = {
+    oscMix:['Oscillator Mix',0,100,'%'],sub:['Sub Level',0,100,'%'],detune:['Detune',0,100,'%'],phase:['Phase Offset',0,100,'%'],
+    morph:['Spectral Morph',0,100,'%'],density:['Harmonic Density',0,100,'%'],evolution:['Evolution',0,100,'%'],cutoff:['Filter Cutoff',80,18000,'Hz'],resonance:['Resonance',0,18,'Q'],
+    lfoRate:['LFO Rate',0.02,4,'Hz'],lfoDepth:['LFO Depth',0,100,'%'],width:['Stereo Width',0,100,'%'],reverb:['Reverb Send',0,100,'%'],delay:['Delay Send',0,100,'%'],
+    ratioA:['Operator A Ratio',0.25,8,'x'],ratioB:['Operator B Ratio',0.25,12,'x'],ratioC:['Operator C Ratio',0.25,16,'x'],fmIndex:['FM Index',0,100,'%'],modDepth:['Modulation Depth',0,100,'%'],modAttack:['Modulator Attack',0,100,'%'],pitchDrop:['Pitch Drop',0,100,'%'],shape:['Wave Shape',0,100,'%'],drive:['Drive',0,100,'%'],motion:['Motion',0,100,'%'],
+    exciter:['Exciter Level',0,100,'%'],resonators:['Resonator Count',2,12,''],spread:['Resonator Spread',0,100,'%'],inharmonicity:['Inharmonicity',0,100,'%'],decay:['Decay',0,100,'%'],ringFreq:['Ring Frequency',20,2000,'Hz'],ringDepth:['Ring Depth',0,100,'%'],combDelay:['Comb Delay',2,35,'ms'],feedback:['Feedback',0,48,'%'],
+    grainSize:['Grain Size',40,500,'ms'],position:['Grain Position',0,100,'%'],pitch:['Pitch',-24,24,'st'],pitchRandom:['Pitch Random',0,100,'%'],positionRandom:['Position Random',0,100,'%'],texture:['Texture Density',0,100,'%'],filter:['Texture Filter',100,16000,'Hz'],modRate:['Modulation Rate',0.02,3,'Hz']
+  };
+  const presets = {
+    abyss:[
+      ['Deep Void',{oscMix:38,sub:72,detune:24,morph:18,density:66,cutoff:950,resonance:2,lfoRate:.06,lfoDepth:12,evolution:24,width:82,reverb:82,delay:32}],
+      ['Black Horizon',{oscMix:55,sub:55,detune:42,morph:38,density:78,cutoff:1800,resonance:4,lfoRate:.11,lfoDepth:25,evolution:62,width:90,reverb:72,delay:44}],
+      ['Frozen Nebula',{oscMix:68,sub:25,detune:12,morph:72,density:42,cutoff:6200,resonance:2,lfoRate:.035,lfoDepth:38,evolution:76,width:100,reverb:90,delay:20}],
+      ['Abyssal Drift',{oscMix:48,sub:48,detune:35,morph:55,density:52,cutoff:2700,resonance:5,lfoRate:.08,lfoDepth:50,evolution:88,width:78,reverb:66,delay:62}],
+      ['Submerged Temple',{oscMix:25,sub:88,detune:8,morph:30,density:84,cutoff:1400,resonance:7,lfoRate:.045,lfoDepth:16,evolution:35,width:65,reverb:96,delay:18}],
+      ['Eternal Night',{oscMix:60,sub:60,detune:28,morph:64,density:70,cutoff:4200,resonance:3,lfoRate:.025,lfoDepth:32,evolution:92,width:96,reverb:88,delay:48}]
+    ],
+    mutant:[
+      ['Alien Squelch',{ratioA:1,ratioB:2.71,ratioC:1.414,fmIndex:68,modDepth:74,modAttack:8,pitchDrop:22,shape:55,cutoff:4800,resonance:8,drive:45,motion:70,width:58}],
+      ['Insect Mutation',{ratioA:1.03,ratioB:5.17,ratioC:2.31,fmIndex:82,modDepth:66,modAttack:4,pitchDrop:48,shape:78,cutoff:7200,resonance:12,drive:52,motion:88,width:72}],
+      ['Dark Matter',{ratioA:0.5,ratioB:3.14,ratioC:1.73,fmIndex:45,modDepth:52,modAttack:34,pitchDrop:12,shape:28,cutoff:2100,resonance:5,drive:30,motion:28,width:48}],
+      ['Acid Parasite',{ratioA:1,ratioB:1.997,ratioC:4.23,fmIndex:76,modDepth:88,modAttack:12,pitchDrop:36,shape:62,cutoff:3400,resonance:14,drive:68,motion:82,width:62}],
+      ['Fractal Attack',{ratioA:1.5,ratioB:2.83,ratioC:7.11,fmIndex:92,modDepth:90,modAttack:2,pitchDrop:64,shape:84,cutoff:8600,resonance:6,drive:74,motion:96,width:80}],
+      ['Bio Mechanical',{ratioA:1,ratioB:3.5,ratioC:2.01,fmIndex:56,modDepth:72,modAttack:22,pitchDrop:18,shape:48,cutoff:5600,resonance:9,drive:58,motion:52,width:68}]
+    ],
+    rift:[
+      ['Metallic Rift',{exciter:58,resonators:9,spread:54,inharmonicity:82,resonance:58,decay:76,ringFreq:211,ringDepth:34,combDelay:12,feedback:28,cutoff:8500,drive:32,width:75}],
+      ['Broken Resonance',{exciter:74,resonators:12,spread:92,inharmonicity:95,resonance:84,decay:42,ringFreq:83,ringDepth:66,combDelay:7,feedback:34,cutoff:4200,drive:62,width:60}],
+      ['Quantum Impact',{exciter:92,resonators:5,spread:38,inharmonicity:70,resonance:32,decay:18,ringFreq:640,ringDepth:78,combDelay:3,feedback:12,cutoff:11000,drive:55,width:85}],
+      ['Industrial Ghost',{exciter:62,resonators:8,spread:65,inharmonicity:88,resonance:72,decay:90,ringFreq:47,ringDepth:22,combDelay:25,feedback:42,cutoff:2800,drive:78,width:92}],
+      ['Distorted Relic',{exciter:82,resonators:10,spread:44,inharmonicity:60,resonance:90,decay:56,ringFreq:330,ringDepth:54,combDelay:16,feedback:38,cutoff:6200,drive:86,width:70}],
+      ['Fracture Field',{exciter:48,resonators:12,spread:100,inharmonicity:100,resonance:44,decay:68,ringFreq:970,ringDepth:88,combDelay:5,feedback:18,cutoff:9800,drive:42,width:100}]
+    ],
+    void:[
+      ['Organic Fog',{grainSize:340,density:28,position:45,pitch:0,pitchRandom:12,positionRandom:78,texture:76,filter:1800,resonance:2,modRate:.08,modDepth:24,width:100,reverb:92,delay:54}],
+      ['Ghost Particles',{grainSize:90,density:72,position:62,pitch:7,pitchRandom:68,positionRandom:90,texture:52,filter:8200,resonance:5,modRate:.7,modDepth:48,width:95,reverb:78,delay:66}],
+      ['Dark Bloom',{grainSize:480,density:18,position:25,pitch:-7,pitchRandom:18,positionRandom:45,texture:88,filter:950,resonance:3,modRate:.035,modDepth:16,width:84,reverb:100,delay:30}],
+      ['Granular Memory',{grainSize:160,density:55,position:72,pitch:0,pitchRandom:38,positionRandom:62,texture:68,filter:4200,resonance:4,modRate:.16,modDepth:42,width:88,reverb:85,delay:72}],
+      ['Spectral Dust',{grainSize:55,density:90,position:50,pitch:12,pitchRandom:85,positionRandom:100,texture:44,filter:12500,resonance:8,modRate:1.2,modDepth:68,width:100,reverb:74,delay:88}],
+      ['Forgotten Signal',{grainSize:260,density:36,position:18,pitch:-12,pitchRandom:24,positionRandom:48,texture:82,filter:2600,resonance:6,modRate:.06,modDepth:32,width:92,reverb:96,delay:44}]
+    ]
+  };
+  const engineSelect = document.querySelector('#sdEngine');
+  const presetSelect = document.querySelector('#sdPreset');
+  const sections = document.querySelector('#sdSections');
+  const status = document.querySelector('#sdStatus');
+  const title = document.querySelector('#sdEngineTitle');
+  const snapshots = { A:null, B:null };
+  let currentEngine = 'abyss';
+  const persistKey = 'musicam.soundDesign.presets.v1';
+  const readSaved = () => { try { return JSON.parse(localStorage.getItem(persistKey) || '{}'); } catch (_) { return {}; } };
+  const writeSaved = data => { try { localStorage.setItem(persistKey, JSON.stringify(data)); return true; } catch (_) { return false; } };
+  const applyPatch = (engine, patch) => {
+    Object.entries(patch || {}).forEach(([key,value]) => {
+      if (a.synth[engine] && Object.prototype.hasOwnProperty.call(a.synth[engine],key)) {
+        a.synth[engine][key] = value;
+        const meta = labels[key];
+        if (meta) a.setSynthParameter ? a.setSynthParameter(engine,key,value) : r.setSynthParameter(engine,key,value);
+      }
+    });
+    renderControls();
+  };
+  const renderControls = () => {
+    if (!sections) return;
+    sections.innerHTML = '';
+    const spec = engineMeta[currentEngine];
+    Object.entries(spec.sections).forEach(([section,keys]) => {
+      const box = document.createElement('section'); box.className='sd-section';
+      const heading = document.createElement('h4'); heading.textContent=section; box.appendChild(heading);
+      keys.forEach(key => {
+        const meta=labels[key],value=a.synth[currentEngine][key];
+        const row=document.createElement('label');row.className='sd-control';
+        const name=document.createElement('span');name.textContent=meta[0];
+        const input=document.createElement('input');input.type='range';input.min=meta[1];input.max=meta[2];input.step=(key==='resonators'||key==='density')?1:(meta[2]-meta[1]>100?1:0.01);input.value=value;
+        const output=document.createElement('output');output.textContent=Number(value).toFixed(meta[3]==='Hz'&&value<100?1:0)+(meta[3]?' '+meta[3]:'');
+        input.addEventListener('input',()=>{
+          const n=Number(input.value);
+          r.setSynthParameter(currentEngine,key,n);
+          output.textContent=Number(n).toFixed(meta[3]==='Hz'&&n<100?1:0)+(meta[3]?' '+meta[3]:'');
+          if(status)status.textContent='PARAMETER UPDATED · NEW NOTES USE CURRENT PATCH';
+        });
+        row.append(name,input,output);box.appendChild(row);
+      });
+      sections.appendChild(box);
+    });
+  };
+  const loadPreset = (engine,index) => {
+    const preset=presets[engine] && presets[engine][index];
+    if (!preset) return;
+    applyPatch(engine,preset[1]);
+    if(status)status.textContent='LOADED · '+preset[0].toUpperCase();
+  };
+  const refreshPresets = () => {
+    if(!presetSelect)return;
+    const custom=readSaved()[currentEngine]||[];
+    presetSelect.innerHTML='';
+    presets[currentEngine].forEach((p,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=p[0];presetSelect.appendChild(o)});
+    custom.forEach((p,i)=>{const o=document.createElement('option');o.value='custom:'+i;o.textContent='USER · '+p.name;presetSelect.appendChild(o)});
+  };
+  const chooseEngine = engine => {
+    if(!engineMeta[engine])return;
+    currentEngine=engine;
+    if(title)title.textContent=engineMeta[engine].title;
+    refreshPresets();renderControls();
+    if(engineSelect)engineSelect.value=engine;
+  };
+  if(engineSelect)engineSelect.addEventListener('change',()=>chooseEngine(engineSelect.value));
+  if(presetSelect)document.querySelector('#sdLoad')?.addEventListener('click',()=>{
+    const value=presetSelect.value;
+    if(value.startsWith('custom:')){const custom=readSaved()[currentEngine]||[];const p=custom[Number(value.slice(7))];if(p)applyPatch(currentEngine,p.params);if(status)status.textContent='USER PRESET LOADED'}
+    else loadPreset(currentEngine,Number(value));
+  });
+  document.querySelector('#sdSave')?.addEventListener('click',()=>{
+    const data=readSaved(),list=data[currentEngine]||[];
+    const name=window.prompt('Preset name');
+    if(!name||!name.trim())return;
+    list.push({name:name.trim().slice(0,48),params:{...a.synth[currentEngine]}});
+    data[currentEngine]=list.slice(-40);
+    if(writeSaved(data)){refreshPresets();if(status)status.textContent='PRESET SAVED LOCALLY'}else if(status)status.textContent='STORAGE UNAVAILABLE';
+  });
+  document.querySelector('#sdRandom')?.addEventListener('click',()=>{
+    const patch={};
+    Object.entries(a.synth[currentEngine]).forEach(([key,base])=>{
+      const meta=labels[key];if(!meta)return;
+      const lo=meta[1],hi=meta[2];
+      const scale=(key==='cutoff'||key==='filter'||key==='ringFreq')?'log':'linear';
+      patch[key]=scale==='log'?Math.exp(Math.log(lo)+(Math.log(hi)-Math.log(lo))*Math.random()):lo+Math.random()*(hi-lo);
+    });
+    applyPatch(currentEngine,patch);if(status)status.textContent='SAFE-RANGE RANDOM PATCH GENERATED';
+  });
+  const saveSlot=slot=>{snapshots[slot]={...a.synth[currentEngine]};if(status)status.textContent='SLOT '+slot+' STORED'};
+  document.querySelector('#sdA')?.addEventListener('click',()=>saveSlot('A'));
+  document.querySelector('#sdB')?.addEventListener('click',()=>saveSlot('B'));
+  document.querySelector('#sdCompare')?.addEventListener('click',()=>{
+    const slot=snapshots.A?'A':snapshots.B?'B':null;
+    if(!slot){if(status)status.textContent='STORE A OR B FIRST';return;}
+    applyPatch(currentEngine,snapshots[slot]);if(status)status.textContent='RESTORED SLOT '+slot;
+  });
+  const sdToggle=document.querySelector('#sdToggle'),sdBody=document.querySelector('#sdBody');
+  if(sdToggle&&sdBody)sdToggle.addEventListener('click',e=>{sdBody.hidden=!sdBody.hidden;e.currentTarget.textContent=sdBody.hidden?'+':'−';e.currentTarget.setAttribute('aria-expanded',String(!sdBody.hidden))});
+  chooseEngine('abyss');
+
 }
