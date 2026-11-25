@@ -57,9 +57,9 @@ const INSTRUMENTS = {
   piano:     { name: 'Piano',           color: '#dfeaff', oct: 3 },
   epiano:    { name: 'Electric piano',  color: '#9fb8ff', oct: 3 },
   organ:     { name: 'Organ',           color: '#d9a877', oct: 3 },
-  marimba:   { name: 'Marimba',         color: '#f2b880', oct: 4 },
-  kalimba:   { name: 'Kalimba',         color: '#7fe0d0', oct: 4 },
-  steelpan:  { name: 'Steel pan',       color: '#5fd4f4', oct: 4 },
+  marimba:   { name: 'ABYSS',         color: '#f2b880', oct: 4 },
+  kalimba:   { name: 'MUTANT',         color: '#7fe0d0', oct: 4 },
+  steelpan:  { name: 'RIFT',       color: '#5fd4f4', oct: 4 },
 
   violin:    { name: 'Violin',          color: '#ffa8c5', oct: 4 },
   cello:     { name: 'Cello',           color: '#d98cb3', oct: 2 },
@@ -68,7 +68,7 @@ const INSTRUMENTS = {
   trumpet:   { name: 'Trumpet',         color: '#f5b83d', oct: 4 },
   voices:    { name: 'Voices',          color: '#d4c5ff', oct: 3 },
 
-  bells:     { name: 'Bells',           color: '#fff59a', oct: 5 },
+  bells:     { name: 'VOID',           color: '#fff59a', oct: 5 },
   synth:     { name: 'Synth',           color: '#6dff9c', oct: 4 },
   bass:      { name: 'Bass',            color: '#7aa8ff', oct: 1 },
   sub:       { name: '808 bass',        color: '#5b8cff', oct: 1 },
