@@ -1183,8 +1183,8 @@ export function installAudioExperience(r) {
   // referenced an undefined P symbol and aborted the remaining V2 installers.
   const profiles = {
     psychedelic: { cut: 13500, echo: 0.18, delay: 0.42, psy: 45, dark: 25, motion: 35, space: 45 },
-    psyambient:  { cut: 6200,  echo: 0.36, delay: 0.90, psy: 30, dark: 70, motion: 18 },
-    psytrance:   { cut: 16500, echo: 0.12, delay: 0.28, psy: 70, dark: 18, motion: 65 },
+    psyambient:  { cut: 6200,  echo: 0.36, delay: 0.90, psy: 30, dark: 70, motion: 18, space: 78 },
+    psytrance:   { cut: 16500, echo: 0.12, delay: 0.28, psy: 70, dark: 18, motion: 65, space: 28 },
   };
   let profile = 'psychedelic';
   const values = { psy: 45, dark: 25, motion: 35, space: 45 };
