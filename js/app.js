@@ -1125,7 +1125,7 @@ function boot() {
   lastT = fpsT = nowS();
   requestAnimationFrame(frame);
   if (location.hash.includes('demo')) { $('#startStatus').textContent = 'Demo: scripted hands are playing. Click anywhere if you hear nothing.'; runDemo(); }
-  window.__sm = { state, transport, audio, rec, demo, cam, film, INSTRUMENTS, STARTERS, mp3Blob, iconImg, storedSetups, applySetup, starterSetup, snapshot, exportStems, setShape, chordDegNow, chordLabel,
+  window.__sm = { state, transport, audio, setSynthParameter, rec, demo, cam, film, INSTRUMENTS, STARTERS, mp3Blob, iconImg, storedSetups, applySetup, starterSetup, snapshot, exportStems, setShape, chordDegNow, chordLabel,
     demoApi: { tween, both, demoStretch, sleep }, size: () => [W, H], pluck, addString, sweep, processHands, startRecording, stopRecording, armLayer, togglePlay, zoneInfo, zoneCount };
 }
 boot();

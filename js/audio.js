@@ -1281,7 +1281,14 @@ export function installAudioExperience(r) {
   const sd = document.querySelector('#soundDesign');
   const clampValue = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || 0));
   if (!root || !a) return;
-  a.setSynthParameter = setSynthParameter;
+  const setParameter = r && r.setSynthParameter;
+  if (typeof setParameter !== 'function') {
+    console.error('[Musicam] Sound Lab initialization skipped: setSynthParameter is unavailable.');
+    const status = document.querySelector('#sdStatus');
+    if (status) status.textContent = 'SOUND ENGINE API UNAVAILABLE';
+    return;
+  }
+  a.setSynthParameter = setParameter;
 
   let scopeStarted = false, scopeAnalyser = null;
   const startScope = () => {
