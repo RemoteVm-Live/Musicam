@@ -36,14 +36,18 @@ js/
 
 The refactor retains the original 24 instruments, seven scale configurations, two-hand MediaPipe tracking, mouse fallback, 12 virtual strings, beat patterns and transport, up to eight loop layers, v1 JSON setups, WAV/MP3/video recording, stem ZIP export and scripted demo.
 
-The original gesture mapping semantics and audio engine algorithms were not intentionally redesigned. V2 profile controls are additive parameter changes against the existing audio graph.
+The original gesture mapping semantics, transport, recording pipeline, and the 20 retained instrument algorithms are preserved. Four legacy instrument slots keep their stored IDs but now use dedicated experimental synthesis engines: `marimba` → ABYSS, `kalimba` → MUTANT, `steelpan` → RIFT, and `bells` → VOID. Setup v1 serialization remains ID-compatible; the new engine patches are stored separately as local presets.
 
 ## Psy profiles and macros
 
-- Psychedelic, Psyambient and Psytrance presets are exposed as profiles.
-- PSY, DARK and MOTION macros adjust existing filter / echo parameters with bounded targets.
-- No independent replacement synthesis engines or unsupported FM features are claimed.
-- Visualizer modes consume the real audio output analyser signal. The original stage renderer remains active underneath the optional overlay.
+- Psychedelic, Psyambient and Psytrance profiles are exposed with PSY, DARK, MOTION, and SPACE macros.
+- The four replacement slots use independent engines: ABYSS (evolving layered drone), MUTANT (three-stage cascaded FM), RIFT (inharmonic resonator bank, ring-modulated path and bounded comb feedback), and VOID (procedural looping grain cloud).
+- A dedicated Sound Design panel exposes engine-specific controls, six factory patches per engine, local user preset save/load, bounded randomization, A/B patch snapshots, and a live waveform/spectrum monitor.
+- Engine controls are applied to active voices where the synthesis graph supports safe AudioParam updates; structural settings such as resonator/grain counts are bounded by the active voice's existing graph.
+- The RIFT ring-mod path is a gain-modulation implementation, not a frequency shifter. MUTANT uses a cascaded three-operator FM topology; it does not claim DX-style operator feedback or exact phase modulation.
+- VOID uses a generated procedural texture buffer and a bounded set of looping grain windows; external sample loading is not included.
+- Shared engine send routing feeds the existing reverb and tempo echo buses. Stereo spread uses a controlled dual-path Haas-style widening network.
+- The global stage visualizer continues to consume the real output analyser signal; the sound-design panel has its own compact analyser monitor.
 
 ## Reliability work in this branch
 
@@ -54,7 +58,7 @@ The original gesture mapping semantics and audio engine algorithms were not inte
 
 ## Validation status
 
-Static JavaScript parse checks passed for the four application modules after extraction. This is not equivalent to browser runtime validation. No claim is made that real camera, audio hardware, recording, export, mobile layout, or long-session tests have passed in this environment.
+Static JavaScript parse checks passed for all four application modules after the sound-engine and UI changes. This is not equivalent to browser runtime validation. The new synthesis algorithms and UI wiring have not yet been auditioned or stress-tested in a real browser. No claim is made that real camera, audio hardware, recording, export, mobile layout, or long-session tests have passed in this environment.
 
 Before release, run the complete browser regression matrix: startup and demo; mouse interaction; camera permission grant/deny; GPU-to-CPU MediaPipe fallback; repeated camera start/stop; all instruments and scales; gesture mapping; beats/BPM/chord/layers; Setup v1 import/export; WAV/MP3/video recording; offline stems/ZIP; reduced motion; responsive layouts; and repeated AudioContext lifecycle transitions.
 
@@ -66,4 +70,16 @@ Before release, run the complete browser regression matrix: startup and demo; mo
 
 ## Release status
 
-Experimental branch only. Do not merge into `main` or distribute as a production release until browser/runtime regression tests and LGPL packaging are completed.
+Experimental branch only. The four synth engines and Sound Design console are implemented on this branch, but this is not a production release. Do not merge into `main` or distribute until browser/runtime regression, audio listening, CPU/memory stress tests, Setup v1 compatibility, recording/export tests, and LGPL packaging are completed.
+
+
+## Sound engine implementation notes
+
+- Engine IDs remain `marimba`, `kalimba`, `steelpan`, and `bells` to avoid changing stored Setup v1 string instrument IDs.
+- Factory preset data and engine parameter defaults live in `js/audio.js`; user-created presets are stored in browser LocalStorage under `musicam.soundDesign.presets.v1`.
+- A/B snapshots are in-memory and scoped per engine; user presets persist locally.
+- ABYSS sustains while its string voice is held and has a bounded maximum voice duration. It is not yet an independent free-running drone track.
+- MUTANT is a cascaded carrier/modulator implementation using native oscillators and AudioParams. It is not a full general-purpose modular FM matrix.
+- RIFT uses parallel Biquad resonators and a feedback comb path capped below unity. Its ring modulation is a gain-modulation approximation.
+- VOID uses up to 24 looping grains per voice from a generated two-second texture buffer. It does not yet provide sample import or a full continuously rescheduled granular cloud.
+- The master chain and offline rendering path have not yet been validated with the new engine nodes. Treat stems and OfflineAudioContext support as unverified until runtime tests pass.
