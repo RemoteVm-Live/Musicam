@@ -1004,5 +1004,72 @@ async function exportStems(onStatus) {
 return { audio, midiHz, buildGraph, initAudio, setFx, instBus, ksBuffer, env, VC, noiseSrc, oscAt, playNote, releaseVoice, bendVoice, SUSTAINS, buildVoice, playDrum, playEvent, BEATS, BEAT_ORDER, PARTS, PROGS, transport, stepDur, scaleDegree, scheduleStep, tick, startTransport, stopTransport, togglePlay, setBeat, stepAt, armLayer, captureEvent, makeLayer, layerOut, finishLayer, removeLayer, undoLayer, chordDegNow, chordLabel, rec, TAP_SRC, pushPcm, ensureTap, pickMime, startRecording, stopRecording, wavBlob, pcmFromVideo, mp3Blob, mp3Possible, finishRecording, saveMp3, download, renderOffline, wavBytes, CRC_TABLE, crc32, zipBlob, exportStems };
 }
 
-export function installAudioExperience(r){const root=document.querySelector('#psyConsole'),a=r.audio;if(!root)return;let profile='psychedelic',v={psy:45,dark:25,motion:35};const set=(p,n,t=.12)=>{if(p&&a.ctx)try{p.setTargetAtTime(n,a.ctx.currentTime,t)}catch(_){}},apply=()=>{if(!a.ctx)return;const p=P[profile],psy=v.psy/100,dark=v.dark/100,motion=v.motion/100;set(a.lp?.frequency,clamp(p.cut*(1-dark*.78),650,19000));set(a.echoSend?.gain,clamp(p.echo+psy*.28+motion*.12,0,.72),.18);set(a.echoDelay?.delayTime,clamp(p.delay*(.65+motion*.8),.08,1.45),.2)},select=n=>{if(!P[n])return;profile=n;root.querySelectorAll('[data-profile]').forEach(b=>b.classList.toggle('active',b.dataset.profile===n));Object.keys(v).forEach(k=>{v[k]=P[n][k];const i=root.querySelector('[data-macro="'+k+'"]');i.value=v[k];i.nextElementSibling.value=v[k]});apply()};
-root.querySelectorAll('[data-profile]').forEach(b=>b.addEventListener('click',()=>select(b.dataset.profile)));root.querySelectorAll('[data-macro]').forEach(i=>i.addEventListener('input',()=>{v[i.dataset.macro]=+i.value;i.nextElementSibling.value=i.value;apply()}));root.querySelector('#psyToggle').addEventListener('click',e=>{const b=root.querySelector('#psyBody');b.hidden=!b.hidden;e.currentTarget.textContent=b.hidden?'+':'−';e.currentTarget.setAttribute('aria-expanded',String(!b.hidden))});document.addEventListener('pointerdown',()=>{if(a.ctx)apply()},{capture:true});select('psychedelic')}
+export function installAudioExperience(r) {
+  const root = document.querySelector('#psyConsole');
+  const a = r && r.audio;
+  if (!root || !a) return;
+
+  // Explicit profile definitions. Keep these local: the former implementation
+  // referenced an undefined P symbol and aborted the remaining V2 installers.
+  const profiles = {
+    psychedelic: { cut: 13500, echo: 0.18, delay: 0.42, psy: 45, dark: 25, motion: 35 },
+    psyambient:  { cut: 6200,  echo: 0.36, delay: 0.90, psy: 30, dark: 70, motion: 18 },
+    psytrance:   { cut: 16500, echo: 0.12, delay: 0.28, psy: 70, dark: 18, motion: 65 },
+  };
+  let profile = 'psychedelic';
+  const values = { psy: 45, dark: 25, motion: 35 };
+  const set = (param, value, time = 0.12) => {
+    if (!param || !a.ctx) return;
+    try { param.setTargetAtTime(value, a.ctx.currentTime, time); } catch (_) {}
+  };
+  const apply = () => {
+    if (!a.ctx) return;
+    const p = profiles[profile];
+    const psy = values.psy / 100;
+    const dark = values.dark / 100;
+    const motion = values.motion / 100;
+    set(a.lp && a.lp.frequency, clamp(p.cut * (1 - dark * 0.78), 650, 19000));
+    set(a.echoSend && a.echoSend.gain, clamp(p.echo + psy * 0.28 + motion * 0.12, 0, 0.72), 0.18);
+    set(a.echoDelay && a.echoDelay.delayTime, clamp(p.delay * (0.65 + motion * 0.8), 0.08, 1.45), 0.2);
+  };
+  const select = name => {
+    if (!Object.prototype.hasOwnProperty.call(profiles, name)) return;
+    profile = name;
+    root.querySelectorAll('[data-profile]').forEach(button => {
+      button.classList.toggle('active', button.dataset.profile === name);
+    });
+    Object.keys(values).forEach(key => {
+      values[key] = profiles[name][key];
+      const input = root.querySelector('[data-macro="' + key + '"]');
+      if (input) {
+        input.value = values[key];
+        if (input.nextElementSibling) input.nextElementSibling.value = values[key];
+      }
+    });
+    apply();
+  };
+
+  root.querySelectorAll('[data-profile]').forEach(button => {
+    button.addEventListener('click', () => select(button.dataset.profile));
+  });
+  root.querySelectorAll('[data-macro]').forEach(input => {
+    input.addEventListener('input', () => {
+      const key = input.dataset.macro;
+      if (!Object.prototype.hasOwnProperty.call(values, key)) return;
+      values[key] = clamp(Number(input.value) || 0, 0, 100);
+      if (input.nextElementSibling) input.nextElementSibling.value = values[key];
+      apply();
+    });
+  });
+  const toggle = root.querySelector('#psyToggle');
+  const body = root.querySelector('#psyBody');
+  if (toggle && body) {
+    toggle.addEventListener('click', event => {
+      body.hidden = !body.hidden;
+      event.currentTarget.textContent = body.hidden ? '+' : '−';
+      event.currentTarget.setAttribute('aria-expanded', String(!body.hidden));
+    });
+  }
+  document.addEventListener('pointerdown', apply, { capture: true });
+  select('psychedelic');
+}
