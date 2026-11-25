@@ -1280,6 +1280,41 @@ export function installAudioExperience(r) {
   if (!root || !a) return;
   a.setSynthParameter = setSynthParameter;
 
+  let scopeStarted = false, scopeAnalyser = null;
+  const startScope = () => {
+    if (scopeStarted || !a.ctx || !a.out) return;
+    const canvas = document.querySelector('#sdScope');
+    if (!canvas) return;
+    const g = canvas.getContext('2d');
+    if (!g) return;
+    try {
+      scopeAnalyser = a.ctx.createAnalyser();
+      scopeAnalyser.fftSize = 512;
+      scopeAnalyser.smoothingTimeConstant = 0.78;
+      a.out.connect(scopeAnalyser);
+      const wave = new Uint8Array(scopeAnalyser.fftSize);
+      const spectrum = new Uint8Array(scopeAnalyser.frequencyBinCount);
+      scopeStarted = true;
+      const draw = () => {
+        requestAnimationFrame(draw);
+        if (!scopeAnalyser) return;
+        scopeAnalyser.getByteTimeDomainData(wave);
+        scopeAnalyser.getByteFrequencyData(spectrum);
+        const w = canvas.width, h = canvas.height;
+        g.clearRect(0,0,w,h);
+        g.fillStyle = '#03100d'; g.fillRect(0,0,w,h);
+        const bars = 48, step = Math.max(1,Math.floor(spectrum.length/bars));
+        g.fillStyle = '#00d9ff';
+        for(let i=0;i<bars;i++){let v=0;for(let j=0;j<step;j++)v=Math.max(v,spectrum[i*step+j]||0);const bh=v/255*h*.72;g.fillRect(i*w/bars,h-bh,w/bars-2,bh);}
+        g.beginPath();g.strokeStyle='#00ff9c';g.lineWidth=2;
+        for(let i=0;i<w;i++){const v=(wave[Math.floor(i/w*wave.length)]-128)/128,y=h*.34-v*h*.25;if(i===0)g.moveTo(i,y);else g.lineTo(i,y);}
+        g.stroke();
+      };
+      draw();
+    } catch (_) { scopeAnalyser = null; }
+  };
+  document.addEventListener('click', startScope);
+
   // Explicit profile definitions. Keep these local: the former implementation
   // referenced an undefined P symbol and aborted the remaining V2 installers.
   const profiles = {
