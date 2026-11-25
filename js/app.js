@@ -918,20 +918,33 @@ function initUI() {
   // start screen
   const status = msg => { $('#startStatus').textContent = msg; };
   $('#startCam').addEventListener('click', async () => {
-    initAudio();
-    $('#startCam').disabled = true;
+    const button = $('#startCam');
+    button.disabled = true;
+    status('Preparing camera…');
     try {
+      // Start audio synchronously inside the user gesture, but never let audio failure
+      // prevent the camera flow or trap the user on the welcome screen.
+      try { initAudio(); } catch (audioError) { console.warn('[Musicam] Audio will initialize on first note:', audioError); }
       await startCamera(status);
       closeModal('startModal');
     } catch (err) {
-      console.error(err);
-      const denied = err && (err.name === 'NotAllowedError' || err.name === 'NotFoundError');
-      status(denied ? 'The camera did not open. Allow camera access for this page and try again, or play with the mouse.'
-        : 'The hand tracker could not load (it needs an internet connection). You can still play with the mouse. ' + (err && err.message ? '(' + err.message + ')' : ''));
-      $('#startCam').disabled = false;
+      console.error('[Musicam] Camera startup failed:', err);
+      const message = err && err.message ? err.message : 'Unknown camera startup error';
+      const denied = err && (err.name === 'NotAllowedError' || err.name === 'NotFoundError' || err.name === 'NotReadableError');
+      status(denied
+        ? 'Camera unavailable or permission denied. Allow camera access, or choose “Play with the mouse instead”.'
+        : 'Camera startup timed out or the hand tracker could not load. You can still play with the mouse. (' + message + ')');
+    } finally {
+      button.disabled = false;
     }
   });
-  $('#startMouse').addEventListener('click', () => { initAudio(); state.mode = 'mouse'; closeModal('startModal'); });
+  $('#startMouse').addEventListener('click', () => {
+    // Close first: audio initialization must never strand the user behind this modal.
+    state.mode = 'mouse';
+    closeModal('startModal');
+    try { initAudio(); } catch (error) { console.warn('[Musicam] Audio will initialize on first interaction:', error); }
+    refreshUI();
+  });
 
   addEventListener('resize', layoutStage);
   addEventListener('keydown', e => {

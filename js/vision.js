@@ -9,14 +9,19 @@ const TRACKER = Object.assign({
 const cam = { video: null, tracker: null, lastVT: -1, delegate: '', frames: 0, fpsT: 0, trackFps: 0 };
 const modalOpen = () => !!document.querySelector('.modal.open');
 
+const withStartupTimeout = (promise, ms, label) => new Promise((resolve, reject) => {
+  const timer = setTimeout(() => reject(new Error(label + ' timed out after ' + Math.round(ms / 1000) + ' seconds')), ms);
+  Promise.resolve(promise).then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+});
+
 async function loadTracker() {
-  const vision = await import(TRACKER.bundle);
-  const files = await vision.FilesetResolver.forVisionTasks(TRACKER.wasm);
-  const make = delegate => vision.HandLandmarker.createFromOptions(files, {
+  const vision = await withStartupTimeout(import(TRACKER.bundle), 20000, 'Hand-tracker download');
+  const files = await withStartupTimeout(vision.FilesetResolver.forVisionTasks(TRACKER.wasm), 20000, 'Hand-tracker WASM setup');
+  const make = delegate => withStartupTimeout(vision.HandLandmarker.createFromOptions(files, {
     baseOptions: { modelAssetPath: TRACKER.model, delegate },
     runningMode: 'VIDEO', numHands: 2,
     minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5,
-  });
+  }), 25000, 'Hand model initialization');
   if (TRACKER.delegate === 'CPU') { cam.tracker = await make('CPU'); cam.delegate = 'CPU'; return; }
   try { cam.tracker = await make('GPU'); cam.delegate = 'GPU'; }
   catch (e) { cam.tracker = await make('CPU'); cam.delegate = 'CPU'; }
@@ -25,13 +30,21 @@ async function loadTracker() {
 async function startCamera(setStatus) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('This browser cannot open a camera from here.');
   setStatus('Waiting for camera permission…');
-  const stream = cam.stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false,
+  const request = navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 960 }, height: { ideal: 540 }, facingMode: 'user' }, audio: false,
   });
+  // If a browser leaves its permission prompt pending, fail visibly instead of freezing
+  // the start screen forever. Stop a late stream if the timeout already fired.
+  let timedOut = false;
+  request.then(stream => { if (timedOut) stream.getTracks().forEach(track => track.stop()); }).catch(() => {});
+  let stream;
+  try { stream = await withStartupTimeout(request, 20000, 'Camera permission request'); }
+  catch (error) { timedOut = true; throw error; }
+  cam.stream = stream;
   const v = cam.video = $('#cam');
   try {
     v.srcObject = stream;
-    await v.play();
+    await withStartupTimeout(v.play(), 10000, 'Camera video startup');
     setStatus('Loading the hand tracker…');
     await loadTracker();
     state.mode = 'camera';
